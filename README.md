@@ -1,6 +1,7 @@
 ### TeamB
 
 2018暑假留校TeamB成员：
+
 name | CSDN | Github
 --- | --- | ---
 王良 | [CSDN](http://blog.csdn.net/liushall) | [github](https://github.com/niliushall)
