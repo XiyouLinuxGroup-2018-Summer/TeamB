@@ -2,7 +2,7 @@
 int main()
 {
 	int m, n;
-	int i, j, flag = 0;
+	int i, j;
 	int num[100] = {0};
 	scanf("%d%d", &m, &n);
 	while(m != 0 || n != 0)
@@ -13,16 +13,16 @@ int main()
 		}
 		for(i = 0; i < m; i++)
 		{
-			if(n >= num[i] && n <= num[i + 1])
+			if(n <= num[i])
 			{
-				for(j = m - 1; j > i; j--)
+				for(j = m - 1; j > i - 1; j--)
 				{
 					num[j + 1] = num[j];
 				}
-				num[i + 1] = n;
-				flag = 1;
+				num[i] = n;
+				break;
 			}
-			if(i == m - 1 && flag == 0)
+			if(i == m - 1)
 				num[i + 1] = n;
 		}
 		for(i = 0; i < m + 1; i++)
