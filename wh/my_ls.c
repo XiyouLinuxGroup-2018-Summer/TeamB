@@ -199,7 +199,7 @@ void display_name(char *path)
 	if(count) {
 		DIR *dir;
 		struct dirent *ptr;
-		char filename[20][50];
+		char filename[1000][50];
 		if((dir = opendir(path)) == NULL) {
 			printf("open  the %s is failed",path);
 			return;
