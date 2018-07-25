@@ -13,7 +13,7 @@ int my_readir(const char * path)
 		perror("opendir");
 		return -1;
 	}
-	while((ptr = readdir(dir)) == NULL)
+	while((ptr = readdir(dir)) != NULL)
 	{
 		//printf("%ld\n", ptr->d_ino);
 		printf("file name: %s\n", ptr->d_name);
