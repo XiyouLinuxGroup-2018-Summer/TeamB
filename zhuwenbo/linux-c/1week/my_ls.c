@@ -10,6 +10,9 @@
 #include<pwd.h>
 #include<errno.h>
 
+#define GREEN                "\e[0;32m"
+#define BLUE                 "\e[0;34m"
+
 /*
 -a flag = 1；
 -l flag = 2;
@@ -120,11 +123,71 @@ int my_readir(char * path, int flag)
 	closedir(dir);
 	return 0;
 }
+
+
+void r(char *path, int flag) //递归
+{
+	char pathname[100] = {0};
+	//printf("///%s\n", path);
+	struct stat buf;
+	DIR *dir;
+	struct dirent *ptr;
+	if(stat(path, &buf) == -1)
+		erro("stat", __LINE__);
+		if(chdir(path) == -1)
+			erro("chdir", __LINE__);
+		if((dir = opendir(path)) == NULL)
+			erro("opendir", __LINE__);  
+		while((ptr = readdir(dir)) != NULL)
+		{
+			if(stat(ptr->d_name, &buf) == -1)
+				erro("stat", __LINE__);
+			if(S_ISDIR(buf.st_mode))
+			{
+				if (strcmp(".", ptr->d_name) == 0|| strcmp("..", ptr->d_name) == 0)
+                	continue;
+				else
+				{
+					strcpy(pathname, path);
+					if(pathname[strlen(pathname) - 1] != '/')
+						pathname[strlen(pathname)] = '/';
+					strcat(pathname, ptr->d_name);
+					printf("子目录路径为:  %s\n", pathname);
+					r(pathname, flag);
+					memset(pathname, '\0', 100);
+				}
+			}
+			else
+			{
+				if(flag == 4)
+				{	
+					if(ptr->d_name[0] == '.');
+					else
+						printf("%s   ", ptr->d_name);
+				}
+				if(flag == 5)
+					printf("%s   ", ptr->d_name);
+				if(flag == 6)
+				{
+					if(ptr->d_name[0] == '.');
+					else
+						print(ptr->d_name);
+				}
+				if(flag == 7)
+					print(ptr->d_name);
+			}
+		}
+		if(flag == 4 || flag == 5)
+			printf("\n");
+		chdir("..");                                                  //访问完当前目录后返回上层目录
+		closedir(dir);
+}
+
 void print(char * name)
 {       
         int mode;
         char buf_time[32];
-	struct stat buf;
+		struct stat buf;
         struct group *grp;      //获取文件所属用户组名
         struct passwd *pwd;     //获取文件所属用户名
         if(lstat(name, &buf) == -1)
@@ -205,6 +268,7 @@ void print(char * name)
 
 int main(int argc, char * argv[])
 {
+	//printf("argc: %d\n", argc);
 	int flag = 0;
 	int i, j;
 	int len;
@@ -251,6 +315,14 @@ int main(int argc, char * argv[])
 			strcpy(pathname, argv[2]);
 			my_readir(pathname, flag);
 		}
+		else if(flag >= 4)
+		{
+			if(getcwd(pathname, 50) == NULL)
+				erro("getcwd", __LINE__);
+			printf("目录路径:%s\n", pathname);
+			my_readir(pathname, flag - 4);
+			r(pathname, flag);
+		}
 		else
 		{
 			if(getcwd(pathname, 50) == NULL)
@@ -258,14 +330,22 @@ int main(int argc, char * argv[])
 			my_readir(pathname, flag);
 		}
 	}
-	else
+	if(argc > 3)
 	{
+		//printf("***********\n");
 		if(flag == 0)
 			erro("flag", __LINE__);
-		else
+		else if(flag < 4)
 		{
 			strcpy(pathname, argv[argc - 1]);
 			my_readir(pathname, flag);
+		}
+		else if(flag >= 4)
+		{
+			strcpy(pathname, argv[argc -1]);
+			//printf("目录路径:%s\n", pathname);
+			my_readir(pathname, flag - 4);
+			r(pathname, flag);
 		}
 	}
 
