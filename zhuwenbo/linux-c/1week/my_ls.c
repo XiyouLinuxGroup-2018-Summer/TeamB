@@ -115,41 +115,29 @@ int my_readir(char * path, int flag)
 		}
 		switch(flag)
 		{
-			case 0:
+			case 0:										//ls 
 				for(i = 0, j = 0; i < count; i++)
 				{
-					if(name[array[i]][0] == '.')
+					if(name[array[i]][0] == '.')       //跳过隐藏文件
 						continue;
 					if(lstat(name[array[i]], &buf) == -1)
 						erro("lstat", __LINE__);
 					show(name[array[i]], buf);
-					/*
-					printf("%s\t", name[array[i]]);
-					j++;
-					if((j + 1) % 5 == 0)
-						printf("\n");
-					*/
 				}
 				printf("\n");
 				break;
-			case 1:
+			case 1:                                     // ls -a     
 				for(i = 0; i < count; i++)
 				{
 					show(name[array[i]], buf);
-					/*
-					printf("%s\t", name[array[i]]);
-					if((i + 1) % 5 == 0)
-						printf("\n");
-					*/
 				}
 				printf("\n");
 				break;
-			case 2:
+			case 2:                                   //ls -l
 				for(i = 0; i < count; i++)
 				{
 					if(name[array[i]][0] == '.')
 						continue;
-					//	printf("%s\n",name[array[i]]);
 					print(name[array[i]]);
 				}
 					break;
@@ -171,13 +159,12 @@ int my_readir(char * path, int flag)
 void r(char *path, int flag) //递归
 {
 	char pathname[1000] = {0};
-	//printf("///%s\n", path);
 	struct stat buf;
 	DIR *dir;
 	struct dirent *ptr;
 	char temp[1000];
-	if(lstat(path, &buf) == -1);
-		//erro("lstat", __LINE__);
+	if(lstat(path, &buf) == -1)
+		erro("lstat", __LINE__);
 		if(chdir(path) == -1)
 			erro("chdir", __LINE__);
 		getcwd(temp, 1000);
@@ -185,9 +172,8 @@ void r(char *path, int flag) //递归
 			erro("opendir", __LINE__);
 		while((ptr = readdir(dir)) != NULL)
 		{
-		    //printf("name: %s\n", ptr->d_name);
-			if(lstat(ptr->d_name, &buf) == -1);
-				//erro("stat", __LINE__);
+			if(lstat(ptr->d_name, &buf) == -1)
+				erro("stat", __LINE__);
 			if(S_ISDIR(buf.st_mode))
 			{
 				if (strcmp(".", ptr->d_name) == 0|| strcmp("..", ptr->d_name) == 0)
@@ -204,43 +190,18 @@ void r(char *path, int flag) //递归
 					memset(pathname, '\0', 1000);
 				}
 			}
-			/*
-			else
-			{
-				if(flag == 4)
-				{	
-					if(ptr->d_name[0] == '.');
-					else
-						show(ptr->d_name, )
-					
-				}
-				if(flag == 5)
-					printf("%s   ", ptr->d_name);
-				if(flag == 6)
-				{
-					if(ptr->d_name[0] == '.');
-					else
-						print(ptr->d_name);
-				}
-				if(flag == 7)
-					print(ptr->d_name);
-			}*/
 		}
-		
-		//if(flag == 4 || flag == 5)
-		//	printf("\n");
 		chdir("..");                                                  //访问完当前目录后返回上层目录
 		closedir(dir);
 }
 
 void print(char * name)
 {       
-	//	printf("%s\n", name); 
         int mode;
         char buf_time[32];
 		struct stat buf;
-        struct group *grp;      //获取文件所属用户组名
-        struct passwd *pwd;     //获取文件所属用户名
+        struct group *grp;    				  //获取文件所属用户组名
+        struct passwd *pwd;   				  //获取文件所属用户名
         if(lstat(name, &buf) == -1)
 			erro("lstat", __LINE__);
         mode = buf.st_mode;
@@ -303,17 +264,29 @@ void print(char * name)
                 printf("-");
                          
        
-        printf(" %ld", buf.st_nlink);    //打印文件链接数
+        printf(" %ld", buf.st_nlink); 			     //打印文件链接数
         pwd = getpwuid(buf.st_uid);
         grp = getgrgid(buf.st_gid);
         printf(" %s", pwd->pw_name);
         printf(" %s", grp->gr_name);
        
-        printf(" %ld", buf.st_size);  //打印文件大小
+        printf(" %ld", buf.st_size); 				 //打印文件大小
         strcpy(buf_time, ctime(&buf.st_mtime));      //取出文件的时间
-        buf_time[strlen(buf_time) - 1]  = '\0';     //去掉换行符
-        printf(" %s", buf_time);   //打印文件时间信息
-	printf(" %s\n", name);     //打印文件名字
+        buf_time[strlen(buf_time) - 1]  = '\0';      //去掉换行符
+        printf(" %s", buf_time);				     //打印文件时间信息
+		/*根据权限打印文件名*/
+		printf(" %s\n", name);
+		/*
+		if(S_ISDIR(mode))
+		{
+			printf(BLUE);
+			printf(" %s", name);
+			printf(NONE);
+			printf("\n");
+		}
+		if(mode & S_IXUSR)
+		printf(" \e[0;32m%s\033[m\n", name);
+		*/
 }
 
 
