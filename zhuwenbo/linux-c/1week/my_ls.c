@@ -32,7 +32,7 @@ int restline = maxline;		 //一行的剩余长度,输出对齐
 void print(char *name);
 void erro(char *str, int line);
 int my_readir(char * path, int flag);
-void show(char *name, struct stat buf);
+void show(char *name);
 
 void erro(char *str, int line)                     //错误处理函数
 {          
@@ -41,7 +41,7 @@ void erro(char *str, int line)                     //错误处理函数
    	exit(0);
 }          
 
-void show(char *name, struct stat buf)
+void show(char *name)
 {
 	int i, len;
 	if(restline < maxfile)
@@ -52,15 +52,6 @@ void show(char *name, struct stat buf)
 	len = strlen(name);
 	if(len < maxfile)
 		len = maxfile - len;
-	if(S_ISDIR(buf.st_mode))
-	{
-		printf("\e[0;34m%s\033[m", name);
-	}
-	else if(buf.st_mode & S_IXUSR)
-	{
-		printf("\033[m%s\033[m", name);
-	}
-	else 
 		printf("%s", name);
 	for(i = 0; i < len; i++)
 		printf(" ");
@@ -84,7 +75,6 @@ int my_readir(char * path, int flag)
 			erro("chdir", __LINE__);
 		char tempp[500];
 			getcwd(tempp, 500);
-		//printf("tempp: %s\n", tempp);
 		if((dir = opendir(tempp)) == NULL)
 			erro("opendir", __LINE__);
 		while((ptr = readdir(dir)) != NULL)
@@ -95,7 +85,6 @@ int my_readir(char * path, int flag)
 			}
 			strcpy(name[count], ptr->d_name);
 			count++;
-			//print(ptr->d_name);
 		}
 		int array[count], temp;
 		for(i = 0; i < count; i++)
@@ -120,16 +109,14 @@ int my_readir(char * path, int flag)
 				{
 					if(name[array[i]][0] == '.')       //跳过隐藏文件
 						continue;
-					if(lstat(name[array[i]], &buf) == -1)
-						erro("lstat", __LINE__);
-					show(name[array[i]], buf);
+					show(name[array[i]]);
 				}
 				printf("\n");
 				break;
 			case 1:                                     // ls -a     
 				for(i = 0; i < count; i++)
 				{
-					show(name[array[i]], buf);
+					show(name[array[i]]);
 				}
 				printf("\n");
 				break;
@@ -356,7 +343,6 @@ int main(int argc, char * argv[])
 	}
 	if(argc > 3)
 	{
-		//printf("***********\n");
 		if(flag == 0)
 			erro("flag", __LINE__);
 		else if(flag < 4)
@@ -367,13 +353,9 @@ int main(int argc, char * argv[])
 		else if(flag >= 4)
 		{
 			strcpy(pathname, argv[argc -1]);
-			//printf("目录路径:%s\n", pathname);
 			my_readir(pathname, flag - 4);
 			r(pathname, flag);
 		}
 	}
-
-	
-
 	return 0;
 }
