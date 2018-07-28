@@ -10,10 +10,12 @@
 #include<pwd.h>
 #include<errno.h>
 
-#define NONE                 "\033[m"
-#define GREEN                "\e[0;32m"
-#define BLUE                 "\e[0;34m"
-#define maxline 80
+#define maxline 80                   //一行最大输出字符数
+
+#define CLOSE printf("\033[0m");	 //关闭彩色字体
+#define YELLOW printf("\e[1;33m"); 	 //黄色字体
+#define GREEN printf("\e[1;32m");	 //绿色字体
+#define BLUE printf("\e[1;34m");	 //蓝色字体
 
 int maxfile = 0;                 //目录下的最大文件数
 int restline = maxline;		 //一行的剩余长度,输出对齐	
@@ -44,6 +46,9 @@ void erro(char *str, int line)                     //错误处理函数
 void show(char *name)
 {
 	int i, len;
+	struct stat buf;
+	if(lstat(name, &buf) == -1)
+		erro("lstat", __LINE__);
 	if(restline < maxfile)
 	{
 		printf("\n");
@@ -52,6 +57,19 @@ void show(char *name)
 	len = strlen(name);
 	if(len < maxfile)
 		len = maxfile - len;
+	if(S_ISDIR(buf.st_mode))
+	{
+		BLUE
+		printf("%s", name);
+		CLOSE
+	}
+	else if(buf.st_mode & S_IXUSR)
+	{
+		GREEN
+		printf("%s", name);
+		CLOSE
+	}
+	else
 		printf("%s", name);
 	for(i = 0; i < len; i++)
 		printf(" ");
@@ -171,7 +189,9 @@ void r(char *path, int flag) //递归
 					if(pathname[strlen(pathname) - 1] != '/')
 						pathname[strlen(pathname)] = '/';
 					strcat(pathname, ptr->d_name);
-					printf("子目录路径为:  %s\n", pathname);
+					YELLOW
+					printf("%s\n", pathname);
+					CLOSE
 					my_readir(pathname, flag - 4);
 					r(pathname, flag);
 					memset(pathname, '\0', 1000);
@@ -262,18 +282,20 @@ void print(char * name)
         buf_time[strlen(buf_time) - 1]  = '\0';      //去掉换行符
         printf(" %s", buf_time);				     //打印文件时间信息
 		/*根据权限打印文件名*/
-		printf(" %s\n", name);
-		/*
 		if(S_ISDIR(mode))
 		{
-			printf(BLUE);
-			printf(" %s", name);
-			printf(NONE);
-			printf("\n");
+			BLUE
+			printf(" %s\n", name);
+			CLOSE
 		}
-		if(mode & S_IXUSR)
-		printf(" \e[0;32m%s\033[m\n", name);
-		*/
+		else if(mode & S_IXUSR)
+		{
+			GREEN
+			printf(" %s\n", name);
+			CLOSE
+		}
+		else
+			printf(" %s\n", name);
 }
 
 
