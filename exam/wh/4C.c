@@ -33,6 +33,7 @@ int main(void)
 		perror("");
 		return 0;
 	}
+	
 	myfile filedata;
 	while(read(fd,&filedata,sizeof(myfile)) > 0) {
 		if(filedata.fid == 20 || filedata.fid == 18)
@@ -41,12 +42,13 @@ int main(void)
 		write(fd,&filedata,sizeof(myfile));
 	}
 	close(fd);
+	
 	int fp;
 	if((fp = open("/home/wh/wh2/TeamB/exam/allfiles.dat",O_RDONLY)) == -1) {
 		perror("");
 		return 0;
 	}
-	if((fd = open("swep",O_WRONLY)) == -1) {
+	if((fd = open("swep",O_CREAT , S_IWUSR)) == -1) {
 		perror("");
 		return 0;
 	}
@@ -55,7 +57,7 @@ int main(void)
 	while(read(fp,&filedata,sizeof(myfile)) > 0) 
 		if(filedata.fid != 7 && filedata.fid != 28)
 			write(fd,&filedata,sizeof(myfile));
-	
+	rename("allfiles.dat","4C.c");
 	rename("swep","allfiles.dat");
 	
 	return 0;
