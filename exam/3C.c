@@ -8,7 +8,7 @@ struct strange {
 int main(int argc, char *argv[])
 {
     struct strange xp[3];				//声明一个struct strange类型的数组
-    char characters[6] = "abcde";		
+    char characters[6] = {'a','b','c','d','e'};		
     for (int i = 0; i < 6; i++) {
 	//将数组characters中的每个元素赋给xp[0]中的每个元素	
         *((char *)(xp + 0) + i) = characters[i];	

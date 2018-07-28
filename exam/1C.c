@@ -15,7 +15,7 @@ void func(A **a)
 int main(int argc, char *argv[])
 {
     A *a;
-    func(&a);
+    func(&a);			//未传入a的地址，只有形参发生了变化
     printf("%s %d\n", a->name, a->num);
 	free(a->name);
 	free(a);
