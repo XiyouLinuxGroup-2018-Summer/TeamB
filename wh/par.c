@@ -11,34 +11,68 @@
 #include<errno.h>
 #include"List.h"
 typedef struct name{
-	char names[50];
+	char names[100];
 	struct name *next;
 	struct name *prev;
 }name_node_t,*name_list_t;
 
+int g_len = 80;			//一行剩余长度
+int g_maxlen = 0;			//最长文件名的长度
 const char *FILENAME = "par.txt";
 void display(char *name);
-void Sort(char ptr[][50],int length,int *a,char c);
-void display_R(char *name,name_list_t *head)
+void Sort(char ptr[][100],int length,int *a,char c);
+
+void display_R(char *name)
+{
+	struct stat buf;
+	struct dirent *ptr;
+	DIR *dir;
+
+		if((dir = opendir(name)) == NULL) {
+			perror(":");
+			return;
+		}
+		chdir(name);
+		while((ptr = readdir(dir)) != NULL) {
+			lstat(ptr->d_name,&buf);
+			if(S_ISDIR(buf.st_mode)) {
+				if(strcmp(".",ptr->d_name) == 0 || strcmp("..",ptr->d_name) == 0)
+				continue;
+				printf("\033[34m %-s\n\33[1m",ptr->d_name);
+				display_R(ptr->d_name);
+			}
+			else {
+
+				printf("\033[37m %-s \33[1m",ptr->d_name);
+			}
+			putchar('\n');
+
+		}
+		chdir("..");
+		closedir(dir);
+	
+}
+/*
 {	
+
 	static long l = 0;
 	struct stat buf;
 	if(lstat(name,&buf) == -1) {				//根据文件名获取信息
-		printf("open the %s is error",name);
+		perror(":");	
 		return;
 	}
 	
 	if(S_ISDIR(buf.st_mode)) {					//判断是否为目录
-
+	
 		DIR *dir;
 		struct dirent *ptr;
 		if((dir = opendir(name)) == NULL) {
-			printf("open the %s is failed",name);//打开目录
+			perror(":");
 			return;
 		}
 	//	putchar('\n');
 		chdir(name);								//进入下一级目录
-		char pt[10000][50];
+		char pt[100][100];
 		int cnt = 0;
 		int i;
 		while((ptr = readdir(dir)) != NULL)			//获取下一级信息
@@ -64,8 +98,8 @@ void display_R(char *name,name_list_t *head)
 			List_InsertAfter((*head),newNode)
 		}
 		name_node_t *newNode2 = (name_node_t *)malloc(sizeof(name_node_t));
-		char str[50];
-		getcwd(str,50);
+		char str[100];
+		getcwd(str,100);
 		//strcpy(str,name);
 		strcat(str,"\n");
 		strcpy(newNode2->names,str);
@@ -77,7 +111,7 @@ void display_R(char *name,name_list_t *head)
 	}
 	
 }
-	
+*/	
 /*	
 	DIR *dir;
 	struct dirent *ptr;
@@ -135,30 +169,7 @@ void display_R(char *name,name_list_t *head)
 int main(void)
 {
 	char *path = ".";
-	name_list_t head;
-	List_Init(head,name_node_t)
-	display_R(path,&head);
-	name_list_t pos = head->next;
-	printf("\033[34m.:\33[1m");
-	while(pos != head) {
-	 if(strcmp(pos->names,"\n") == 0) {
-		putchar('\n');
-		pos = pos->next;
-		continue;
-	}
-	if(pos->names[0] == '.') {
-		
-		pos = pos->next;
-		continue;
-	}
-	if(pos->names[strlen(pos->names)-1] == '\n') {
-		printf("\033[34m%-s \33[1m",pos->names);
-		pos = pos->next;
-		continue;
-	}
-		printf("\033[37m%-s \33[1m",pos->names);
-		pos = pos->next;
-	}
+	display_R(path);
 	
 	return 0;	
 }
@@ -246,13 +257,13 @@ void display(char *name)
 	
 }
 //对字符串进行排序,结果以游标形式保存在a数组中
-void Sort(char ptr[][50],int length,int *a,char c)
+void Sort(char ptr[][100],int length,int *a,char c)
 {
 	switch(c) {
 		case 'N': {
 			int i,j;//循环变量
 			int swep;
-			char str[2000][50];
+			char str[100][100];
 			for(i = 0;i < length;i++)
 				strcpy(str[i],ptr[i]);
 				
@@ -275,7 +286,7 @@ void Sort(char ptr[][50],int length,int *a,char c)
 			int count = 0;
 			struct stat buf;
 			int swep;
-			char str[10000][50];
+			char str[100][100];
 			for(i = 0;i < length;i++) {						//把所有目录整合到一起
 				if(lstat(ptr[i],&buf) == -1)
 					return;
