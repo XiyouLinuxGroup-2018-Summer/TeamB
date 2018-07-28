@@ -8,19 +8,21 @@
 #include<time.h>
 #include<grp.h>
 #include<pwd.h>
-void display_L(char *name,int coun);												//实现单个文件的ls -l 功能
+#include"List.h"
+
+void display_L(char *name,int count);												//实现单个文件的ls -l 功能
 void display_name(char *path);											//实现ls -文件名/路径名 功能
 void display_R(char *name,int count);									//实现ls -R功能
 void display_RL(char *name,int count);									//实现ls -RL功能
-void Sort(char ptr[][50],int length,int *a,char c);							//按照字母排序
-void HpramHNfile(char ptr[][50],int length,char *pram);					//有参数有无文件
+void Sort(char ptr[][100],int length,int *a,char c);							//按照字母排序
+void HpramHNfile(char ptr[][100],int length,char *pram);					//有参数有无文件
 void NpramNfile(void);													//无参数无文件
-void NpramHfile(char ptr[][50],int count);								//无参数有文件
+void NpramHfile(char ptr[][100],int count);								//无参数有文件
 
 int main(int argc,char *argv[])
 {
 	//初始化文件，目录，参数信息
-	char filename[100][50],pram[20];
+	char filename[100][100],pram[20];
 	filename[0][0] = '0';
 	int n;
 	for(n = 0;n < 20;n++)
@@ -40,12 +42,18 @@ int main(int argc,char *argv[])
 			count++;
 		}
 	}
-	if(argc == 1)
+	if(argc == 1) {
 		NpramNfile();
-	else if(pram[0] == '0')
+//		putchar('\n');
+	}
+	else if(pram[0] == '0') {
 		NpramHfile(filename,count);
-	else
+		putchar('\n');
+	}
+	else {
 		HpramHNfile(filename,count,pram);
+		putchar('\n');
+	}
 	return 0;
 }
 
@@ -54,7 +62,7 @@ void NpramNfile(void)
 {
 	DIR *dir;
 	struct dirent *ptr;
-	char file[100][50];
+	char file[100][100];
 	int count = 0;
 	char path[] = ".";
 	if((dir = opendir(path)) == NULL) {
@@ -83,11 +91,11 @@ void NpramNfile(void)
 			if(l%158 == 0)
 				putchar('\n');
 			if(S_ISDIR(buf.st_mode))
-				printf("\033[34m %s \33[1m",file[ar[i]]);
+				printf("\033[34m %-10s \33[1m",file[ar[i]]);
 			else if(buf.st_mode & 0111)
-				printf("\033[32m %s \33[1m",file[ar[i]]);
+				printf("\033[32m %-10s \33[1m",file[ar[i]]);
 			else
-				printf("\033[37m %s \33[1m",file[ar[i]]);
+				printf("\033[37m %-10s \33[1m",file[ar[i]]);
 		}
 	}
 	putchar('\n');
@@ -97,9 +105,9 @@ void NpramNfile(void)
 
 
 //有参数，有无文件的ls命令处理函数
-void HpramHNfile(char ptr[][50],int length,char *pram)
+void HpramHNfile(char ptr[][100],int length,char *pram)
 {
-	char pt[1100][50];
+	char pt[1100][100];
 	//处理无文件
 	if(length == 0) {
 		strcpy(ptr[0],".");
@@ -153,12 +161,13 @@ void HpramHNfile(char ptr[][50],int length,char *pram)
 							return;
 						}
 						if(S_ISDIR(buf.st_mode))
-							printf("\033[34m %s \33[1m",pt[b[j]]);
+							printf("\033[34m %-10s \33[1m",pt[b[j]]);
 						else if(buf.st_mode & 0111)
-							printf("\033[32m %s \33[1m",pt[b[j]]);
+							printf("\033[32m %-10s \33[1m",pt[b[j]]);
 						else	
-							printf("\033[37m %s \33[1m",pt[b[j]]);
+							printf("\033[37m %-10s \33[1m",pt[b[j]]);
 						}
+						putchar('\n');
 					
 					closedir(dir);
 					break;
@@ -214,6 +223,7 @@ void HpramHNfile(char ptr[][50],int length,char *pram)
 					}
 					break;
 				case 00010:
+
 					display_R(ptr[i],0);
 					break;
 				case 00110:
@@ -237,6 +247,7 @@ void HpramHNfile(char ptr[][50],int length,char *pram)
 					else
 						printf("\033[37m %s \33[1m",ptr[i]);
 					break;
+					putchar('\n');
 				case 00010:
 				case 00111:					//ls -l + 文件
 				case 00011:
@@ -251,7 +262,7 @@ void HpramHNfile(char ptr[][50],int length,char *pram)
 			
 					
 
-void NpramHfile(char ptr[][50],int count)				//无参数有文件
+void NpramHfile(char ptr[][100],int count)				//无参数有文件
 {
 	int i;
 	for(i = 0;i < count;i++)
@@ -273,7 +284,7 @@ void display_name(char *path)
 	if(count) {
 		DIR *dir;
 		struct dirent *ptr;
-		char filename[1000][50];
+		char filename[1000][100];
 		if((dir = opendir(path)) == NULL) {
 			printf("open  the %s is failed",path);
 			return;
@@ -297,13 +308,14 @@ void display_name(char *path)
 				if(lstat(filename[ar[j]],&buf) == -1) 
 					return;
 				if(S_ISDIR(buf.st_mode))	
-					printf("\033[34m %s \33[1m",filename[ar[j]]);
+					printf("\033[34m %-10s \33[1m",filename[ar[j]]);
 				else if(buf.st_mode & 0111)
-					printf("\033[32m %s \33[1m",filename[ar[j]]);
+					printf("\033[32m %-10s \33[1m",filename[ar[j]]);
 				else
-					printf("\033[37m %s \33[1m",filename[ar[j]]);
+					printf("\033[37m %-10s \33[1m",filename[ar[j]]);
 			}
 		}
+		putchar('\n');
 	}
 	else {
 		char name[20];
@@ -314,7 +326,7 @@ void display_name(char *path)
 			}
 			name[j++] = path[i];
 		}
-		printf("\033[37m %s \33[1m",name);
+		printf("\033[37m %-10s \33[1m",name);
 	}
 	return;
 }
@@ -413,130 +425,93 @@ void display_L(char *name,int count)
 //ls -R 路径名
 void display_R(char *name,int count)
 {
-	static long l = 0;
 	struct stat buf;
-	if(lstat(name,&buf) == -1) {				//根据文件名获取信息
-		printf("open the %s is error",name);
+	struct dirent *ptr;
+	DIR *dir;
+	if(lstat(name,&buf) == -1) {
+		perror("");
 		return;
 	}
-	
-	if(S_ISDIR(buf.st_mode)) {					//判断是否为目录
 
-		DIR *dir;
-		struct dirent *ptr;
+	if(S_ISDIR(buf.st_mode)) {
+		
 		if((dir = opendir(name)) == NULL) {
-			printf("open the %s is failed",name);//打开目录
+			perror("");
 			return;
 		}
-	//	putchar('\n');
-		chdir(name);								//进入下一级目录
-		char pt[10000][50];
-		int cnt = 0;
-		int i;
-		while((ptr = readdir(dir)) != NULL)			//获取下一级信息
-			strcpy(pt[cnt++],ptr->d_name);
-			
-			int ar[cnt];
-			for(i = 0;i < cnt;i++)
-				ar[i] = i;
-			Sort(pt,cnt,ar,'R');					//对目录和文件进行整合排序
-		printf("\033[34m\n %s \n\33[1m",name);
-		for(i = 0;i < cnt;i++)
-			if(pt[ar[i]][0] != '.')
-				display_R(pt[ar[i]],count);			//根据下一级文件名递归遍历
-		chdir("..");							//遍历完下一级，返回上一级
-		closedir(dir);					
-	}
-	else
-		if(name[0] != '.' || count) {
-			l += strlen(name);
-			if(l%158 == 0)
-				putchar('\n');
-			if(S_ISDIR(buf.st_mode))
-				printf("\033[34m %s \33[1m",name);
-			else if(buf.st_mode & 0111)
-				printf("\033[32m %s \33[1m",name);
-			else
-				printf("\033[37m %s \33[1m",name);
+		printf("\033[34m %s\n\33[1m",name);
+		
+		while((ptr = readdir(dir)) != NULL) {
+			if(ptr->d_name[0] != '.' || count)
+				printf("\033[37m %s \33[1m",ptr->d_name);
 		}
+		closedir(dir);
+
+		putchar('\n');
+		if((dir = opendir(name)) == NULL) {
+			perror("");
+			return;
+		}
+		chdir(name);
+
+		while((ptr = readdir(dir)) != NULL) 
+			if(ptr->d_name[0] != '.')
+				display_R(ptr->d_name,count);
+		
+		chdir("..");
+		closedir(dir);
+	}
 }
 
 void display_RL(char *name,int count)					//实现ls -RL功能
 {
 	struct stat buf;
-	if(lstat(name,&buf) == -1) {				//根据文件名获取信息
-		printf("open the %s is error",name);
+	struct dirent *ptr;
+	DIR *dir;
+	if(lstat(name,&buf) == -1) {
+		perror("");
 		return;
 	}
-	
-	if(S_ISDIR(buf.st_mode)) {					//判断是否为目录
 
-		DIR *dir;
-		struct dirent *ptr;
+	if(S_ISDIR(buf.st_mode)) {
 		if((dir = opendir(name)) == NULL) {
-			printf("open the %s is failed",name);//打开目录
+			perror("");
 			return;
 		}
-	//	putchar('\n');
-		chdir(name);								//进入下一级目录
-		char pt[100][50];
-		int cnt = 0;
-		int i;
-		while((ptr = readdir(dir)) != NULL)			//获取下一级信息
-			strcpy(pt[cnt++],ptr->d_name);
-			
-			int ar[cnt];
-			for(i = 0;i < cnt;i++)
-				ar[i] = i;
-			Sort(pt,cnt,ar,'R');					//对目录和文件进行整合排序
-		printf("\033[34m\n %s \n\33[1m",name);
-		for(i = 0;i < cnt;i++)
-			if(pt[ar[i]][0] != '.')
-				display_RL(pt[ar[i]],count);			//根据下一级文件名递归遍历
-		chdir("..");							//遍历完下一级，返回上一级
-		closedir(dir);					
-	}
-	else {
-		display_L(name,count);
+		printf("\033[34m %-s\n\33[1m",name);
+		chdir(name);	
 		putchar('\n');
-	}
-}
-/*
-
-	struct stat buf;
-	if(lstat(name,&buf) == -1) {				//根据文件名获取信息
-		printf("open the %s is error",name);
-		return;
-	}
-	
-	if(S_ISDIR(buf.st_mode)) {					//判断是否为目录
-		DIR *dir;
-		struct dirent *ptr;
-		if((dir = opendir(name)) == NULL) {
-			printf("open the %s is failed",name);//打开目录
+		while((ptr = readdir(dir)) != NULL) {		//输出目录下的所有文件，包括目录
+			if(ptr->d_name[0] != '.' || count) {
+				display_L(ptr->d_name,count);	
+				putchar('\n');
+			}
+		}
+		chdir("..");
+		closedir(dir);
+		putchar('\n');
+		if((dir = opendir(name)) == NULL) {			//重新打开此目录，使文件描述符从开头开始
+			printf("open the %s failed:",name);
+			perror("");
+			
 			return;
 		}
-		chdir(name);								//进入下一级目录
-		while((ptr = readdir(dir)) != NULL)			//获取下一级信息
+		chdir(name);	
+		while((ptr = readdir(dir)) != NULL)			//读取目录下的文件，若为目录，则递归输出目录下的文件
 			if(ptr->d_name[0] != '.')
-				display_RL(ptr->d_name,count);			//根据下一级文件名递归遍历
-		chdir("..");							//遍历完下一级，返回上一级
-		closedir(dir);					
+				display_RL(ptr->d_name,count);
+		chdir("..");
+		closedir(dir);
 	}
-	else
-			display_L(name,0);
-			putchar('\n');
-		
 }
-*/
 //对字符串进行排序,结果以游标形式保存在a数组中
-void Sort(char ptr[][50],int length,int *a,char c)
+void Sort(char ptr[][100],int length,int *a,char c)
 {
 	switch(c) {
 		case 'N': {
 			int i,j;//循环变量
 			int swep;
-			char str[2000][50];
+			char str[2000][100];
 			for(i = 0;i < length;i++)
 				strcpy(str[i],ptr[i]);
 				
@@ -559,7 +534,7 @@ void Sort(char ptr[][50],int length,int *a,char c)
 			int count = 0;
 			struct stat buf;
 			int swep;
-			char str[10000][50];
+			char str[10000][100];
 			for(i = 0;i < length;i++) {						//把所有目录整合到一起
 				if(lstat(ptr[i],&buf) == -1)
 					return;
@@ -568,7 +543,23 @@ void Sort(char ptr[][50],int length,int *a,char c)
 					a[i] = count;
 					a[count++] = swep;
 				}
-			}	
+			}
+		
+			for(j = 0;j < count;j++)						//对目录进行排序
+				strcpy(str[i],ptr[i]);
+			for(j = 0;j < count;j++)						//统一大小写字母
+				if(str[j][0] >= 'A' && str[j][0] <= 'Z')
+					str[j][0] += 32;
+		
+			for(i = 0;i < count;i++) {
+				for(j = i + 1;j < length;j++)
+					if(strcmp(str[a[i]],str[a[j]]) > 0) {
+						swep = a[i];
+						a[i] = a[j];
+						a[j] = swep;
+					}
+			}
+
 
 			for(i = count;i < length;i++)					//对文件进行排序
 				strcpy(str[i],ptr[i]);
@@ -594,7 +585,7 @@ void Sort(char ptr[][50],int length,int *a,char c)
 					ptr[i][0] += 32;
 			for(i = 0;i < length;i++)
 				for(j = i + 1;j < length;j++)
-					if(strcmp(ptr[a[i]],ptr[a[j]]) < 0)  {
+					if(strcmp(ptr[a[i]],ptr[a[j]]) < 0 )  {
 						swep = a[i];
 						a[i] = a[j];
 						a[j] = swep;
