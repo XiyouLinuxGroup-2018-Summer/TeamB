@@ -1,16 +1,27 @@
 ### TeamB
 
 2018暑假留校TeamB成员：
-王良  高嘉两  刘嘉辉  朱文博  王恒  李重乐  胡锦雲
+
+name | CSDN | Github
+--- | --- | ---
+王良 | [CSDN](http://blog.csdn.net/liushall) | [github](https://github.com/niliushall)
+高嘉两 | [CSDN](https://blog.csdn.net/aLiegjln) | [github](https://github.com/aliegjln)
+刘嘉辉 |[CSDN](https://blog.csdn.net/Holy_666) | [github](https://github.com/H00ly666)
+朱文博 | [CSDN](https://blog.csdn.net/weixin_42250655) | [github](https://github.com/zhuwenboa)
+王恒 | [CSDN](https://blog.csdn.net/wobushimotou) | [github](https://github.com/wobushimotou)
+李重乐 | [CSDN](https://blog.csdn.net/lalala323) | [github](https://github.com/lalahaha323)
+胡锦雲 | [CSDN](https://blog.csdn.net/kkkkde) | [github](https://github.com/okokme)
 
 -------
 
 ### 目录说明
 目录名 | 说明
 --- | ---
+exam | 存放每周的测验answer
 question | 学习中遇到的问题
 share | 学习中遇到的有趣的东西
 summary | 学习总结
+requirement | 项目要求
 ACM | 存放算法题代码<br>每人新建自己的文件夹
 
 ---------
@@ -20,6 +31,8 @@ ACM | 存放算法题代码<br>每人新建自己的文件夹
 - 除代码外，所有文档须用markdown形式书写
 - 每位同学建立自己的文件夹，存放自己的代码等内容
 - 在summary文件夹下，每位同学同样建立自己的文件夹，存放学习总结
+
+--------
 
 ### 要求
 
