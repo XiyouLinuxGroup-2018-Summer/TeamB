@@ -22,7 +22,7 @@ int f(char *p)
 
 int main()
 {
-	char *p;
+	char p[100] = {0};
 	int N;
 	int res;
 	scanf("%d", &N);
