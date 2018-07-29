@@ -7,10 +7,9 @@ int convert(const char *name)
 	int i = 0;
 	int flag = 1;               //判断符号
 	int num = 0;
-	int len = strlen(name);
 	if(name[0] == '-')
 		flag = -1;
-	for(i = 0; i < len; i++)
+	for(i = 0; name[i] != '\0'; i++)
 	{
 		if(name[i] >= '0' && name[i] <= '9')
 		{
@@ -18,6 +17,7 @@ int convert(const char *name)
 			num += (name[i] - '0');
 		}
 	}
+
 	num *= flag;
 	return num;
 }
