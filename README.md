@@ -17,6 +17,7 @@ name | CSDN | Github
 ### 目录说明
 目录名 | 说明
 --- | ---
+exam | 存放每周的测验answer
 question | 学习中遇到的问题
 share | 学习中遇到的有趣的东西
 summary | 学习总结
