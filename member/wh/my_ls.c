@@ -8,7 +8,6 @@
 #include<time.h>
 #include<grp.h>
 #include<pwd.h>
-#include"List.h"
 
 void display_L(char *name,int count);												//实现单个文件的ls -l 功能
 void display_name(char *path);											//实现ls -文件名/路径名 功能
