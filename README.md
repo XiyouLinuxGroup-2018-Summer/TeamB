@@ -18,6 +18,8 @@ name | CSDN | Github
 目录名 | 说明
 --- | ---
 exam | 存放每周的测验answer
+member | TeamB成员
+plan | 每周的学习计划
 question | 学习中遇到的问题
 share | 学习中遇到的有趣的东西
 summary | 学习总结
