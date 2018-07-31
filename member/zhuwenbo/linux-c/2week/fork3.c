@@ -27,7 +27,8 @@ int main(void)
 			}
 			printf("%p\n", &num);
 			printf("child process: num = %d, count = %d\n", num, count);
-			break;
+			exit(0);
+		//	break;
 		case -1:
 			perror("creat procsee fault");
 			exit(0);
@@ -43,6 +44,6 @@ int main(void)
 			}
 			printf("%p\n", &num);
 			printf("parent process: num = %d, count = %d\n", num, count);
-			exit(0);
+			_exit(0);
 	}
 }
