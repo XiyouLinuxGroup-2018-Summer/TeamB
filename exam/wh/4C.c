@@ -29,16 +29,16 @@ int main(void)
 	file_node_t *pos = head->next;
 	int fd;
 	
-	if((fd = open("/home/wh/wh2/TeamB/exam/allfiles.dat",O_RDONLY)) == -1) {
+	if((fd = open("/home/wh/wh2/TeamB/exam/wh/allfiles.dat",O_RDONLY)) == -1) {
 		perror("");
 		return 0;
 	}
-	
+		
 	myfile filedata;
 	while(read(fd,&filedata,sizeof(myfile)) > 0) {
 		if(filedata.fid == 20 || filedata.fid == 18)
 			filedata.fid = 0777;
-		lseek(fd,-1,SEEK_CUR);
+		lseek(fd,-sizeof(filedata),SEEK_CUR);
 		write(fd,&filedata,sizeof(myfile));
 	}
 	close(fd);
@@ -108,7 +108,7 @@ void display_R(char *path,file_list_t *head)
 			read(fd,p->datas.data,156);
 			close(fd);
 			int fp;
-			if((fp = open("/home/wh/wh2/TeamB/exam/allfiles.dat",O_WRONLY)) == -1) {
+			if((fp = open("/home/wh/wh2/TeamB/exam/wh/allfiles.dat",O_WRONLY | O_APPEND)) == -1) {
 				perror("4");
 				return;
 			}
