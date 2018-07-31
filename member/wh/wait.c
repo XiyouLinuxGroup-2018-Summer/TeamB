@@ -32,7 +32,7 @@ int main(void)
 		child_pid = wait(&stat_val);
 		printf("Child process has exited,pid = %d\n",child_pid);
 		if(WIFEXITED(stat_val))
-			printf("CHild exited with code  %d\n",WEXITSTATUS(stat_val));
+			printf("Child exited with code  %d\n",WEXITSTATUS(stat_val));
 		else
 			printf("Child exited abnormally\n");
 	}

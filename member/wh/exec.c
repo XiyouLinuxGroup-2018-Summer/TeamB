@@ -9,6 +9,11 @@ int main(int argc,char *argv[],char **envp)
 	int stat_val;
 	printf("Exec example!\n");
 	pid = fork();
+	int i;
+	for(i = 0;i < argc;i++)
+		printf("argv[%d] is %s\n",i,argv[i]);
+	
+	printf("argc[2] =  %s\n",argv[2]);
 	switch(pid) {
 		case -1:
 			perror("");
@@ -17,7 +22,7 @@ int main(int argc,char *argv[],char **envp)
 			printf("Child process is running\n");
 			printf("My pid is %d,parentpid = %d\n",getpid(),getppid());
 			printf("uid is %d,gid is %d\n",getuid(),getgid());
-			execve("replace",argv,envp);
+			execve(argv[1],argv,envp);
 			printf("process never go to here!\n");
 			exit(0);
 		default:
