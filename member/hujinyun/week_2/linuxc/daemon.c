@@ -16,8 +16,8 @@ int init_daemon(void)
 	if(pid>0)
 		exit(0);
 	if(pid<0)
-		return -1;//exit(-1);
-
+	//	return -1;//exit(-1);
+	//	exit(-1);
 	setsid();
 	pid = fork();
 	if(pid > 0)
