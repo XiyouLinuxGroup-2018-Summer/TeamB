@@ -6,6 +6,7 @@
 #include<termio.h>
 #include<unistd.h>
 #include<dirent.h>
+#include<stdlib.h>
 int getch(void)
 {
      struct termios tm, tm_old;
@@ -31,19 +32,9 @@ int getch(void)
 }
 int main(void)
 {
-
-	char c;
-	while(	c = getch())  {
-		if(c == 65)
-			printf("up");
-		if(c == 66)
-			printf("down");
-		if(c == 67)
-			printf("right");
-		if(c == 68)
-			printf("left");
-		if(c == 'q')
-			break;
-	}
-	return 0;
+	char str[30];
+	int i;
+	while(1) {
+		for(i = 0;i < 30;i++)
+			
 }
