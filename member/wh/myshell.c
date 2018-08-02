@@ -1,11 +1,15 @@
 #include<stdio.h>
+#include<stdlib.h>
+#include<unistd.h>
 #include<string.h>
 #include<sys/types.h>
-#include<sys/stat.h>
+#include<sys/wait.h>
 #include<fcntl.h>
-#include<termio.h>
-#include<unistd.h>
+#include<sys/stat.h>
 #include<dirent.h>
+#include<termio.h>
+
+//实现无缓冲输入
 int getch(void)
 {
      struct termios tm, tm_old;
@@ -29,9 +33,11 @@ int getch(void)
     
      return ch;
 }
+
+//用于打印出当前目录
 void print_prompt(void) {
-	char cata[20];
-		getcwd(cata,20);						//获取当前目录
+	char cata[30];
+		getcwd(cata,30);						//获取当前目录
 		int k;										//若为主目录，则换成~
 		for(k = 0;k < strlen(cata);k++)
 			if(!strncmp(cata,"/home/wh",7)) {
@@ -49,44 +55,22 @@ void print_prompt(void) {
 	    printf("\033[35m20:17\33[1m-\033[32mwh@wh-ST-Plus-KN\33[1m\033[37m:\33[1m\033[34m%s\33[1m\033[37m$\33[1m ",cata);
 		printf("\033[37m\33[1m");	
 }
-    
-int main(void)
+
+void comple(char *ch)	//补全命令
 {
-	print_prompt();
-    int count = 0;
-	char c;
-	char ch[50];
-	while(c = getch() ) {
-        
-        if(c == '	') 
-            break;
-        ch[count++] = c;
-		
-    }
-	ch[count++] = '\0';
-    char str[20][20];						//用于存储所有补全文件
-    int i;                                                      //循环变量
-	count = 0;
-	struct dirent *ptr;
-
 	DIR *dir;
-
-    if((dir = opendir(".")) == NULL) {
-        perror("");
-        return 0;
-    }
-    while((ptr = readdir(dir)) != NULL)
-        if(!strncmp(ch,ptr->d_name,strlen(ch)))                         //与输入的字符之间进行判断
-                strcpy(str[count++],ptr->d_name);           //若相同，则计数并存储起来
-	closedir(dir);
-	
+	struct dirent *ptr;
+	char c;
+	int count = 0;
+	char str[20][50];
+	int i;						//循环变量
 	//打开存放命令文件的目录名的文件
 	int cnt = 0;
 	int fd;
 	char pt[50] = "";											//用于存储目录文件名
 	if((fd = open("1.txt",O_RDONLY)) == -1) {				//打开存放目录文件名的文件，利用echo $PATH >> 1.txt重定向输出得到
 		perror("open:");
-		return 0;
+		return;
 	}
 	while(read(fd,&c,sizeof(char)) > 0) {
 		if(c != ':')
@@ -94,7 +78,7 @@ int main(void)
 		else {													//得到目录文件名，打开目录文件
 			if((dir = opendir(pt)) == NULL) {					//重复上述比较步骤，得到补全的命令名
 				perror("");
-				return 0;
+				return;
 			}
 			while((ptr = readdir(dir)) != NULL) {
 				if(!strncmp(ch,ptr->d_name,strlen(ch)))
@@ -107,21 +91,78 @@ int main(void)
 			cnt = 0;
 		}
 	}
-	close(fd);
-	
-	
-	if(count == 0)
-		printf("no file or command!!!");
-	if(count == 1) {
-            printf("20:17-wh@wh-ST-Plus-KN:~$ ");
-				puts(str[0]);
+	putchar('\n');
+	for(i = 0;i < count;i++)
+		printf("%15s",str[i]);	
+	putchar('\n');
+}
+//获取用户输入
+void get_input(char *buf)
+{
+	int count = 0;
+	int len = 0;
+	char c;
+	char ch[50];				//存放输入的命令
+	for(int i = 0;i < 50;i++)
+		ch[i] = '\0';
+	while(c = getch()) {
+		switch(c) {
+			case '	':
+				comple(ch);	//补全命令
+				print_prompt();
+				printf("%s",ch);
+				continue;
+				break;
+			case 65:
+			//	void history();		//历史命令
+				continue;
+				break;
+			case 127:
+				putchar('\b');		//回删
+				ch[strlen(ch) - 1] = '\0';
+				count--;
+				continue;
+				break;
+			case '\r':				//回车命令输入结束
+				strcpy(buf,ch);
+				return;				//结束输入
+		}
+		ch[count++] = c;
 	}
-            
-    else
-            for(i = 0;i < count;i++)
-                printf("%s\t",str[i]);
-				putchar('\n');
-
-    return 0;
 }
 
+//解析buf中的命令,将结果存入arglist中，命令以回车符号\r结束(已自动转换为\0)
+void explain_input(char *buf,int *argcount,char arglist[100][256])
+{	
+	int i,j;
+	char *p = buf;
+	for(i = 0;i < strlen(p);i++) {
+		if(p[i] == ' ') {
+			strncpy(arglist[(*argcount)++],p,i);
+			for(j = 0;j <= i;j++,p++);
+			i = 0;
+		}
+		if(p[i+1] == '\0') {
+			strncpy(arglist[(*argcount)++],p,i+1);
+			break;
+		}
+		
+	}
+}
+
+
+
+int main(void)
+{
+	char buf[50];			//存放输入的命令
+	char arglist[100][256];	//存放解析过后的命令
+	int argcount;			
+	int i;					//循环变量
+	
+	print_prompt();
+	get_input(buf);
+	argcount = 0;
+	explain_input(buf,&argcount,arglist);	//解析命令
+
+	return 0;
+}
