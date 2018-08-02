@@ -29,27 +29,34 @@ int getch(void)
     
      return ch;
 }
+void print_prompt(void) {
+	char cata[20];
+		getcwd(cata,20);						//获取当前目录
+		int k;										//若为主目录，则换成~
+		for(k = 0;k < strlen(cata);k++)
+			if(!strncmp(cata,"/home/wh",7)) {
+				cata[0] = '~';
+				int m = strlen(cata);
+				for(k = 1;k < strlen(cata) - 7;k++)
+					cata[k] = cata[k+7];
+				cata[m - 7] = '\0';
+			}
+	
+		char c;
+	    char ch[50];
+	    int count = 0;
+		printf("\033[35m\33[1m");
+	    printf("\033[35m20:17\33[1m-\033[32mwh@wh-ST-Plus-KN\33[1m\033[37m:\33[1m\033[34m%s\33[1m\033[37m$\33[1m ",cata);
+		printf("\033[37m\33[1m");	
+}
+    
 int main(void)
 {
-	char cata[20];
-	getcwd(cata,20);						//获取当前目录
-	int k;										//若为主目录，则换成~
-	for(k = 0;k < strlen(cata);k++)
-		if(!strncmp(cata,"/home/wh",7)) {
-			cata[0] = '~';
-			int m = strlen(cata);
-			for(k = 1;k < strlen(cata) - 7;k++)
-				cata[k] = cata[k+7];
-			cata[m - 7] = '\0';
-		}
-	
-	char c;
-    char ch[50];
+	print_prompt();
     int count = 0;
-	printf("\033[35m\33[1m");
-    printf("\033[35m20:17\33[1m-\033[32mwh@wh-ST-Plus-KN\33[1m\033[37m:\33[1m\033[34m%s\33[1m\033[37m$\33[1m ",cata);
-	printf("\033[37m\33[1m");	
-    while(c = getch() ) {
+	char c;
+	char ch[50];
+	while(c = getch() ) {
         
         if(c == '	') 
             break;
@@ -61,7 +68,8 @@ int main(void)
     int i;                                                      //循环变量
 	count = 0;
 	struct dirent *ptr;
-    DIR *dir;
+
+	DIR *dir;
 
     if((dir = opendir(".")) == NULL) {
         perror("");

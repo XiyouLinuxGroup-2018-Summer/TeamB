@@ -22,7 +22,7 @@ int main(int argc,char *argv[],char **envp)
 			printf("Child process is running\n");
 			printf("My pid is %d,parentpid = %d\n",getpid(),getppid());
 			printf("uid is %d,gid is %d\n",getuid(),getgid());
-			execve(argv[1],argv,envp);
+			execvp("ls",argv);
 			printf("process never go to here!\n");
 			exit(0);
 		default:
