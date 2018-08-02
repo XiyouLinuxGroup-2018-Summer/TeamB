@@ -99,10 +99,189 @@ void get_input(char *buf)
 
 /*解析buf中的命令存入arglist中,命令及参数个数为argcount
 ls -l arglist[0]=ls, arglist[1]=-l*/
-/*void explan_input(char *buf, int *argcount,char arglist[][8])
+void explan_input(char *buf, int *argcount,char arglist[][8])
 {
     char *p = buf;
     ///将用户输入的整行字符拆分成一个个单词,存入二维数组的每一行中
+    while(*p != '\0')
+    {
+        if(*p==' ') p++;
+        else
+        {
+            char *q = p;
+            int len = 0;
+            while((*q!=' ') && (*q!='\0'))
+            {
+                q++; //尾暂存位置
+                len++; //命令或参数长度
+            }
+            //将当前已拆解的单词存入二维数组的一行
+            strncpy(arglist[*argcount],p,len+1);
+            arglist[*argcount][len]='\0';
+            (*argcount)++;
+            p = q;//获取尾位置
+        }
+    }
+
+}
+
+void do_cmd(int argcount, char arglist[10][8])
+{
+    //指针数组,每个元素指向二维数组的一行
+    //arg存放所有命令及参数,argnext存放管道后的命令
+    char *arg[argcount+1],*argnext[argcount+1];
+    int i;
+    int flag = 0;
+    int how = 0;//用于标识命令中是否含有 > <
+    int backgroung = 0; //用于标识指令中是否具有后台运行符&
+    char *file;
+    pid_t pid;
+
+    //提取命令
+    for(i=0; i<argcount; i++)
+    arg[i] = arglist[i]; //指针数组,每个元素指向二维数组的一行
+    arg[argcount] = NULL;
+
+    //查看命令行是否具有后台运行符
+    for(i=0; i<argcount; i++)
+    {
+        if(strncmp(arg[i],"&",1) == 0) //
+        {
+            //后台运行符必须在命令的末尾,否则格式错误
+            if(i == argcount - 1)
+            {
+                background = 1;
+                arg[argcount - 1] = NULL;
+                break;
+            }
+            else
+            {
+                printf("ERROR:wrong command about background\n");
+                return;
+            }
+
+        }
+    }
+    for(i=0; i<arg[i]; i++)
+    {
+        if(strcmp(arg[i],">")==0)
+        {
+            flag++;
+            how = out_redirect;
+            if(arg[i+1]==NULL)//输出重定向符>在最后,没有重定向接受文件
+            //arg是指针数组,指向的是二维数组的一行(一个命令或参数)下一个命令没了NULL说明在最后
+            flag++;//使flag==1告知命令格式错误
+        }
+        if(strcmp(argv[i],"<")==0)
+        {
+            flag++;
+            how = in_redirect;
+            if(i == 0)//输入重定向符<在最前边
+            flag++;
+        }
+        if(strcmp(argv[i],"|")==0)
+        {
+            flag++;
+            how = have_pipe;
+            if(arg[i+1]==NULL) //管道符在最后
+            flag++;
+            if(i==0)
+            flag++;
+        }
+    }
+    //flag>1,说明同时含有><|的两个或者以上,本程序不支持,或命令格式错误
+    if(flag>1)
+    {
+        printf("ERROR:wrong command about>,<,|\n");
+        return;
+    }
+
+    if(how == out_redirect) //命令中只含有一个输出重定向符
+    {
+        for(i=0; arg[i]!=NULL; i++)
+        if(strcmp(arg[i],">")==0)
+        {
+            file = arg[i+1]; //获取输出的重定向
+            arg[i]=NULL;
+        }
+    }
+
+    if(how == in_redirect) //输入命令中只含有一个输入重定向符
+    {
+        for(i=0;arg[i]!=NULL; i++)
+        if(strcmp(arg[i],"<")==0)
+        {
+            file = arg[i+1];
+            arg[i] = NULL;
+        }
+    }
+
+    if(how == have_pipe) //命令中只有一个管道符号
+    {
+        for(i=0; arg[i]!=NULL; i++)
+        if(strcmp(arg[i],"|")==0)
+        {
+            arg[i] = NULL;
+            i++;
+            int j = 0;
+            //将管道命令后边的命令存入argnext中
+            while(arg[i] != NULL)
+            {
+                argnext[j++]=arg[i++];
+            }
+            argnext[j] = NULL;
+            break;
+        }
+    }
+
+    //创建子进程
+    pid = fork();
+    if(pid<0)
+    {
+        perror("fork failure");
+        return;
+    }
+
+    switch(how)
+    {
+        case 0:         //一般命令
+                if(pid == 0) //子进程执行用户输入的命令
+                {
+                    if(!find_command(arg[0])) //判断命令是否可执行
+                    {
+                        printf("%s: command not found\n",arg[0]);
+                        exit(0);
+                    }
+
+                }
+    }
 
 
-}*/
+
+
+}
+
+int find_command(char *command)
+{
+    DIR *dir;
+    struct dirent *ptr;
+    char *path[] ={"./", "/bin", "/usr/bin",NULL};
+    //当用户输入命令如 ./ls时,将ls命令与目录中的ls文件相匹配 如ls存储在/bin/ls 就可以在/bin目录中匹配到
+    if(strcmp(command,"./",2) == 0)//最多比较前n个字节
+    command = command +2;
+    int i=0;
+    while(path[i] != NULL)
+    {
+        if((dir = opendir(path[i])) == NULL)
+        printf("can't open /bin\n");
+        while((ptr = readdir(dir))!=NULL)
+        if(strcmp(ptr->d_name,command)==0)
+        {
+            closedir(dir);
+            return 1; //找到返回1
+        }
+        closedir(dir);
+        i++;
+    }
+    reurtn 0;    //没找到返回0
+}
