@@ -8,6 +8,8 @@
 #include<sys/stat.h>
 #include<dirent.h>
 #include<termio.h>
+#include<readline/readline.h>
+#include<readline/history.h>
 int find_command(char *command);
 //实现无缓冲输入
 int getch(void)
@@ -66,14 +68,14 @@ void comple(char *ch,int flag)	//补全命令
 	char str[20][50];
 	char *p = ch;
 	int i;						//循环变量
-	for(i = 0;ch[i] != ' ';i++,p++);
+	for(i = 0;(ch)[i] != ' ';i++,p++);
 	p++;
 	if(flag == 0) {				//命令补全
 		//打开存放命令文件的目录名的文件
 		int cnt = 0;
 		int fd;
 		char pt[50] = "";											//用于存储目录文件名
-		if((fd = open("~/wh2/TeamB/member/wh/1.txt",O_RDONLY)) == -1) {				//打开存放目录文件名的文件，利用echo $PATH >> 1.txt重定向输出得到
+		if((fd = open("/home/wh/wh2/TeamB/member/wh/1.txt",O_RDONLY)) == -1) {				//打开存放目录文件名的文件，利用echo $PATH >> 1.txt重定向输出得到
 			perror("open:");
 			return;
 		}
@@ -86,7 +88,7 @@ void comple(char *ch,int flag)	//补全命令
 					return;
 				}
 				while((ptr = readdir(dir)) != NULL) {
-					if(!strncmp(p,ptr->d_name,strlen(p)))
+					if(!strncmp(ch,ptr->d_name,strlen(ch)))
 						strcpy(str[count++],ptr->d_name);
 				}
 				int length = strlen(pt);
@@ -97,10 +99,18 @@ void comple(char *ch,int flag)	//补全命令
 			}
 		}
 		close(fd);
-		putchar('\n');
-		for(i = 0;i < count;i++)
-			printf("%15s",str[i]);	
-		putchar('\n');
+		if(count > 1) {
+			putchar('\n');
+			for(i = 0;i < count;i++)
+				printf("%15s",str[i]);	
+			putchar('\n');
+		}
+	/*	else if(count == 1) {
+			for(i = strlen(ch);i < strlen(str[0]);i++)
+				putchar(str[0][i]);
+		}
+	*/	
+			
 	}
 	else {					//文件补全
 		char cata[30];
@@ -164,14 +174,16 @@ void get_input(char *buf)
 				continue;
 				break;
 			case 65:
+			case 66:
 				//				history();		//历史命令
 				continue;
-				break;
+				
 			case 127:
-				if(count > 0)
+				if(count > 0) {
 					putchar('\b');		//回删
-				ch[strlen(ch) - 1] = '\0';
-				count--;
+					ch[strlen(ch) - 1] = '\0';
+					count--;
+				}
 				continue;
 				break;
 			case '\r':				//回车命令输入结束
@@ -246,16 +258,22 @@ void do_cmd(int argcount,char arglist[100][256])
 		}
 	}
 	int cnt = 0;
-	int cot = 0;
 	for(i = 0;arg[i] != NULL;i++) {
 		if(strcmp(arg[i],">") == 0) {
-			cnt++;
 			flag = 0001;
+			cnt = 1;
 			if(arg[i+1] == NULL)
 				flag = 0002;
 		}
+		if(strcmp(arg[i],">>") == 0) {
+			flag = 0001;
+			cnt = 2;
+			if(arg[i+1] == NULL)
+				flag = 0002;
+		}
+	
 		if(strcmp(arg[i],"<") == 0) {
-			cot++;
+			
 			flag = 0010;
 			if(i == 0)
 				flag = 0020;
@@ -273,11 +291,16 @@ void do_cmd(int argcount,char arglist[100][256])
 	}
 
 	if(flag == 0001) {
-		for(i = 0;arg[i];i++)
+		for(i = 0;arg[i];i++) {
 			if(strcmp(arg[i],">") == 0) {
 				file = arg[i+1];
 				arg[i] = NULL;
 			}
+			if(strcmp(arg[i],">>") == 0) {
+				file = arg[i+1];
+				arg[i] = NULL;
+			}
+		}
 	}
 	if(flag == 0010) {
 		for(i = 0;arg[i];i++)
@@ -469,7 +492,10 @@ int main(void)
 			for(j = 0;j < 256;j++)
 				arglist[i][j] = '\0';
 		print_prompt();
-		get_input(buf);
+		char *str = readline(" ");
+		add_history(str);
+		strcpy(buf,str);
+		//get_input(buf);
 		if(strcmp(buf,"exit") == 0 || strcmp(buf,"logout") == 0)
 			break;
 		argcount = 0;

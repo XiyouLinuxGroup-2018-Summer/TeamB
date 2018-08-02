@@ -32,9 +32,24 @@ int getch(void)
 }
 int main(void)
 {
-	char str[30];
-	int i;
-	while(1) {
-		for(i = 0;i < 30;i++)
-			
+	char ch;
+	while(ch = getch() ) {
+		switch(ch) {
+			case 65:
+				printf("up");
+				break;
+			case 66:
+				printf("down");
+				break;
+			case 67:
+				printf("left");
+				break;
+			case 68:
+				printf("right");
+				break;
+		}
+		if(ch == 'q')
+			break;
+	}
+	return 0;
 }
