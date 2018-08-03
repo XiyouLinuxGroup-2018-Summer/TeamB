@@ -295,10 +295,12 @@ void do_cmd(int argcount,char arglist[100][256])
 			if(strcmp(arg[i],">") == 0) {
 				file = arg[i+1];
 				arg[i] = NULL;
+				break;
 			}
 			if(strcmp(arg[i],">>") == 0) {
 				file = arg[i+1];
 				arg[i] = NULL;
+				break;
 			}
 		}
 	}
