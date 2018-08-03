@@ -11,11 +11,12 @@
   #include<unistd.h>
   #define BUFFSIZE 64
  
-  #define normal 0        // 一般的命令
-  #define out_redirect 1  // 输出重定向
-  #define in_redirect 2   // 输入重定向
-  #define have_pipe 3     // 命令中有管道
-  
+  #define normal 0              // 一般的命令 eg:ls ,gedit
+  #define out_redirect 1        // 输出重定向> (覆盖)
+  #define in_redirect 2         // 输入重定向<
+  #define have_pipe 3           // 命令中有管道|
+  #define out_in_redirect 4     //追加重定向>> (追加)
+
   void print_prompt();    // 打印提示符
   void get_input(char *); // 读取用户输入的命令
   // 二维数组作为函数参数，第1维长度可以不指定，但必须指定第2维长度
@@ -76,6 +77,7 @@ void GetDir()
         p--;
     }
     p++;
+    printf(" ~/");
     printf("%s]@",p);
 }
 
@@ -182,13 +184,22 @@ void GetDir()
                                  flag++;
                  }
                  if(strcmp(arg[i], "|") == 0)
-                 {
+                 {//requirement
                          flag++;
                          how = have_pipe;
                          if(arg[i+1] == NULL)    // 管道符在最后面
                                  flag++;
                          if(i == 0)      // 管道符在最前面
                                  flag++;
+                 }
+                 if(strcmp(arg[i],">>")==0)
+                 {
+                     flag++;
+                     how = out_in_redirect;
+                     if(arg[i+1] == NULL)      //追加输出重定向在最后边
+                                flag++;
+                     if(i == 0)
+                                flag++;
                  }
          }
          // flag大于1，说明同时含有>,<,|中的两个或以上，本程序不支持
@@ -218,7 +229,15 @@ void GetDir()
                                  arg[i] = NULL;
                          }
          }
- 
+         if(how == out_in_redirect) //命令中只含有一个追加输出重定向符
+        {
+            for(i=0; arg[i] != NULL; i++)
+                    if(strcmp(arg[i],">>") == 0)
+                    {
+                        file = arg[i+1];
+                        arg[i] = NULL;
+                    }
+        }
          if(how == have_pipe)    // 命令中只含有一个管道符号
          {
                  for(i=0; arg[i]!=NULL; i++)
@@ -235,6 +254,23 @@ void GetDir()
                                  argnext[j] = NULL;
                                  break;
                          }
+         }
+         if((arg[0]!=NULL) &&(strcmp(arg[0],"cd") == 0) )
+         {
+             if(arg[1] == NULL)
+             {
+                 return ;
+             }
+             if(strcmp(arg[1],"~") == 0)
+             {
+                 //~替换为家目录
+                 strcpy(arg[1],"/home/k/");
+             }
+             if(chdir(arg[1]) == -1)
+             {
+                 perror("cd");
+             }
+             return;
          }
         //创建子进程
          pid = fork();
@@ -327,6 +363,19 @@ void GetDir()
                          }
                          //remove("/tmp/youdontknowfile");
                          //unlink("/tmp/youdontknowfile");
+                case 4: //命令中有追加输入重定向>>
+                        if(pid == 0)
+                        {
+                            if(!find_command(arg[0]))
+                            {
+                                printf("%s:comment not found\n",arg[0]);
+                                exit(0);
+                            }
+                            int fd =open(file,O_APPEND);
+                            dup2(fd,0);
+                            execvp(arg[0],arg);
+                            exit(0);
+                        }
 			 break;
                  default:
                          break;
