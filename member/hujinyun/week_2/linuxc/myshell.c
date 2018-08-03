@@ -198,8 +198,8 @@ void GetDir()
                      how = out_in_redirect;
                      if(arg[i+1] == NULL)      //追加输出重定向在最后边
                                 flag++;
-                     if(i == 0)
-                                flag++;
+                /*     if(i == 0)
+                                flag++;*/
                  }
          }
          // flag大于1，说明同时含有>,<,|中的两个或以上，本程序不支持
@@ -371,8 +371,9 @@ void GetDir()
                                 printf("%s:comment not found\n",arg[0]);
                                 exit(0);
                             }
-                            int fd =open(file,O_APPEND);
-                            dup2(fd,0);
+                            close(1); //关闭要重定向的文件描述符
+                            int fd =open(file,O_WRONLY | O_CREAT | O_APPEND,0644);
+                           // dup2(fd,0);
                             execvp(arg[0],arg);
                             exit(0);
                         }
