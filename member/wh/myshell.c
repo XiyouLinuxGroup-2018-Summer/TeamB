@@ -32,7 +32,6 @@ int getch(void)
 	if (tcsetattr(fd, TCSANOW, &tm_old) < 0) {//更改设置为最初的样子
 		return -1;
 	}
-
 	return ch;
 }
 
