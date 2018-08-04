@@ -422,6 +422,7 @@ void do_cmd(int argcount,char arglist[100][256])
 
 //查找命令中的可执行程序
 int find_command(char *command)
+
 {
 	DIR *dp;
 	struct dirent *dirp;
@@ -445,7 +446,8 @@ int find_command(char *command)
 	}
 	return 0;
 }
-	/*
+/*
+{	
 	DIR *dir;
 	struct dirent *ptr;
 	char c;
@@ -472,13 +474,14 @@ int find_command(char *command)
 				if(!strncmp(command,ptr->d_name,strlen(command)))
 					return 1;
 			}
+		
+			closedir(dir);
 		}
-		closedir(dir);
 	}
 	close(fd);
 	return 0;
-
-}*/
+}
+*/
 int main(void)
 {
 	char buf[50];			//存放输入的命令
@@ -493,6 +496,7 @@ int main(void)
 			for(j = 0;j < 256;j++)
 				arglist[i][j] = '\0';
 		print_prompt();
+		signal(SIGINT,SIG_IGN);
 		char *str = readline(" ");
 		add_history(str);
 		strcpy(buf,str);
