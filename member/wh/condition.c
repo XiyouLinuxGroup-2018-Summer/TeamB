@@ -6,16 +6,16 @@ pthread_cond_t	cond;	//条件变量
 
 void *thread1(void *arg)
 {
-	pthread_cleanup_push(pthread_mutex_unlock,arg);		//用于释放线程资源,与pthread_cleanup_pop成对出现
+//	pthread_cleanup_push(pthread_mutex_unlock,(void *)&mutex);		//用于释放线程资源,与pthread_cleanup_pop成对出现
 	while(1) {
 		printf("thread1 is running\n");
 		pthread_mutex_lock(&mutex);							//加锁
 		pthread_cond_wait(&cond,&mutex);					//释放由参数mutex指向的锁,使当前线程关于条件变量cond指向的条件变量阻塞
 		printf("thread1 applied the condition\n");
 		pthread_mutex_unlock(&mutex);						//解锁
-		sleep(4);
+		sleep(1);
 	}
-	pthread_cleanup_pop(0);
+//	pthread_cleanup_pop(0);
 }
 
 void *thread2(void *arg)
