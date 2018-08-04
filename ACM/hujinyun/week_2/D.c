@@ -1,24 +1,28 @@
 #include<stdio.h>
 #include<string.h>
-int n,m;
+int n; //输入值
+int flag;
 
-void dfs(n,m);
+void dfs(long long m, int step)
 {
-    if(m%n==0) return;//如何直接回到主函数
-    for(i=0;i<2;i++)
+    if(flag==1 || step>18) return;//返回
+    if(m%n==0)
     {
-        if(i==1)m=m*10;dfs(n,m);
-        if(i==2)m=m*10+1; dfs(n,m);
+        printf("%lld\n",m); //将m值输出
+        flag=1;
+        return;
     }
+    dfs(m*10,step+1);
+    dfs(m*10+1,step+1);
 }
+
 int main(void)
 {
     while(scanf("%d",&n)!=EOF)
     {
-        m=1;
         if(n==0) break;
-
-        dfs();
+        flag=0; //注意这里要对flag进行更新
+        dfs(1,0);
     }
     return 0;
 }
