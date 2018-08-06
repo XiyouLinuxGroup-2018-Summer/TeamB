@@ -1,0 +1,78 @@
+第一题
+
+printf("%d\n", &(&4[(int *)3])[5]);
+
+有一个 (* 4ptr[(int *)3]) *a[5]
+
+ptr 变量的名称，a：变量的名称
+
+(* 4 ptr[(int *)3])是a[5]变量的类型
+
+第一题
+
+    #include<stdio.h>
+    #include<sys/types.h>
+    #include<unistd.h>
+    int main(void)
+    {
+        for (int i = 0; i < 2; i++)
+        {
+            pid_t pid = fork();
+            printf("hello, world?");
+        }
+        return 0;
+    }
+
+a.八个hello,world?
+
+b.最终产生4个进程
+
+18617第一次  原进程变为父进程1，子进程1；第二次：父进程1变为父进程2和子进程2     子进程1变为子父进程1和子子进程1
+
+原因是因为缓存区的问题，fork出来后，子进程继承了父进程的缓存区等一些东西。当程序结束后缓存区输出，这样就会产生8个hello world？如果在hello world？后面加一个\n则只会有6个出来
+
+第二题
+
+exec函数执行新程序，这个执行程序会代替当前的执行映像。相当于替换之后本来的代码段，堆栈段，数据段等。但是原来的进程ID，父进程ID等都不变。当你调用exec函数族的时候，会到换将变量中去找到你要执行的东西，并去执行。比如你想执行ls，当你调用此函数族中的任一个函数时(第一个参数就是你输入要找的ls)，之后如果找到这个文件了，就会执行这个东西。
+
+该函数族的参数不一样
+
+第三题
+
+    #include<sys/types.h>
+    #include<unistd.h>
+    #include<sys/wait.h>
+    #include<stdio.h>
+    int main(int argc, char *argv[])
+    {
+        printf("Hello, my pid is %d\n", getpid());
+        pid_t pid = fork();
+        if (pid == 0)
+        {
+            printf("I was forked! :D %d\n", getpid());
+        }
+        else
+        {
+            waitpid(pid, NULL, 0);
+            printf("%d was forked!\n", pid);
+        }
+        return 0;
+    }
+
+输出为：
+
+    Hello, my pid is 21587
+    I was forked! :D 21589
+    Hello, my pid is 21587
+    21589 was forked!
+
+getpid:获得进程ID，进程序先执行第一句话printf("Hello,my pid is :%d\n",grtpid());(这时候原来的进程的ID为21587)
+
+此时变为两个进程：子进程返回0；父进程返回当前子进程的ID，每个系统的子父进程执行的先后不一样。我的系统执行的先是父进程：所以进入else 这里有一句waitpid(pid,NULL,0);而此时的pid就是：我要等待我指定这个pid的进程结束。而父进程fork出来的返回值pid解释子进程的pid，所以父进程此时要等待子进程先完成后才能继续下面的。
+
+所以此时进行子进程，所以输出if(pid==0)后面的内容，所以输出了子进程的ID21589.
+
+这时子进程进行完毕了，就可以进行父进程了。
+
+此时输出当前进程的ID，因为当前进程是父进程所以会输出父进程的ID，接着执行else 输出fork后父进程的返回值，所以此时的返回值是子进程的ID
+
