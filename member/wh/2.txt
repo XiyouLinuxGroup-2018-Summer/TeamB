@@ -1,11 +1,42 @@
-总用量 180
+1.txt
+2.txt
+8-72.c
+8-75.c
+cd.c
+condition.c
+creatthread.c
+daemon.c
+diffork.c
+env.c
+exec.c
+fcntl_lock.c
+fork2.c
+fork3.c
+history.dat
+jointhread.c
+ls.c
+my_cd.c
+my_chmod.c
+my_chown.c
+my_ls.c
+my_rwl.c
+oncerun.c
+par.c
+replace
+replace.c
+show_files.c
+table.c
+test_netof.c
+tsd.c
+wait.c
+wh.c
+总用量 144
 -rw-r--r-- 1 wh wh    99 8月   3 21:10 1.txt
--rw-r--r-- 1 wh wh     0 8月   4 11:32 2.txt
--rw-r--r-- 1 wh wh   515 8月   4 08:46 8-72.c
--rw-r--r-- 1 wh wh  1859 8月   4 09:19 8-75.c
--rwxr-xr-x 1 wh wh 29328 8月   4 11:32 a.out
+-rw-r--r-- 1 wh wh   281 8月   6 08:58 2.txt
+-rw-r--r-- 1 wh wh   515 8月   4 15:42 8-72.c
+-rw-r--r-- 1 wh wh  1859 8月   4 15:42 8-75.c
 -rw-r--r-- 1 wh wh   153 8月   3 21:10 cd.c
--rw-r--r-- 1 wh wh  1251 8月   4 08:49 condition.c
+-rw-r--r-- 1 wh wh  1251 8月   4 15:42 condition.c
 -rw-r--r-- 1 wh wh   462 8月   3 21:10 creatthread.c
 -rw-r--r-- 1 wh wh  1225 8月   3 21:10 daemon.c
 -rw-r--r-- 1 wh wh   702 8月   3 21:10 diffork.c
@@ -22,13 +53,13 @@
 -rw-r--r-- 1 wh wh   857 8月   3 21:10 my_chown.c
 -rw-r--r-- 1 wh wh 12710 8月   3 21:10 my_ls.c
 -rw-r--r-- 1 wh wh   837 8月   3 21:10 my_rwl.c
--rw-r--r-- 1 wh wh 10887 8月   4 11:32 myshell.c
 -rw-r--r-- 1 wh wh   711 8月   3 21:10 oncerun.c
 -rw-r--r-- 1 wh wh  1038 8月   3 21:10 par.c
 -rwxr-xr-x 1 wh wh  8512 8月   3 21:10 replace
 -rw-r--r-- 1 wh wh   322 8月   3 21:10 replace.c
 -rw-r--r-- 1 wh wh   485 8月   3 21:10 show_files.c
 -rw-r--r-- 1 wh wh  3188 8月   3 21:10 table.c
+-rw-r--r-- 1 wh wh  1448 8月   4 16:03 test_netof.c
 -rw-r--r-- 1 wh wh   836 8月   3 21:10 tsd.c
 -rw-r--r-- 1 wh wh   993 8月   3 21:10 wait.c
 -rw-r--r-- 1 wh wh  1996 8月   3 21:10 wh.c
