@@ -1,4 +1,4 @@
-//Client/Server模型的服务器端口
+//Client/Server模型的服务器端口 TCP类型
 #include<sys/types.h>
 #include<sys/socket.h>
 #include<unistd.h>

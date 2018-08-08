@@ -8,7 +8,9 @@
 #include<sys/socket.h>
 #include<netinet/in.h>
 #include<arpa/inet.h>
-
+#include<signal.h>
+#include<fcntl.h>
+#include<sys/ioctl.h>
 //定义一个端口区间的信息
 typedef struct _port_segment{
 	struct in_addr			dest_ip;		//目标IP
@@ -24,7 +26,6 @@ void my_err(const char *err_string,int lines)
 	exit(1);
 }
 
-//扫描某一ID地址上的某一个端口的函数
 int do_scan(struct sockaddr_in serv_addr)
 {
 	int conn_fd;
@@ -34,45 +35,50 @@ int do_scan(struct sockaddr_in serv_addr)
 	if(conn_fd < 0) {
 		my_err("socket",__LINE__);
 	}
+
+	fcntl(conn_fd, F_SETFL, O_NONBLOCK);		//将套接字设置为非阻塞
 	//向服务器端发送连接请求
-	if((ret = connect(conn_fd,(struct sockaddr *)&serv_addr,sizeof(struct sockaddr_in))) < 0) {
-		if(errno = ECONNREFUSED) {			//目标端口未打开
+	if((ret = connect(conn_fd,(struct sockaddr *)&serv_addr,sizeof(struct sockaddr))) < 0) {
+	//		unsigned long ul = 1;
+	//		ioctl(conn_fd, FIONBIO, &ul);
+		if(errno != EINPROGRESS) {			//连接错误
 			close(conn_fd);
-			return 0;
+			return 1;
 		}
 		else {								//其他错误
 			close(conn_fd);
 			return -1;
 		}
+		errno = 0;
 	}
 	else if(ret == 0) {
 		printf("port %d fount in %s\n",ntohs(serv_addr.sin_port),inet_ntoa(serv_addr.sin_addr));
 		close(conn_fd);
-		return 1;
 	}
-	return -1;
+	return -1;								
 }
 
 //执行扫描的线程，扫描某一区间的端口
 void *scaner(void *arg)
 {
 	unsigned		short int i;
-	struct sockaddr_in serv_addr;
+	struct			sockaddr_in serv_addr;
 	port_segment	portinfo;				//端口信息
 
 	//读取端口区间信息
-	memcpy(&portinfo,arg,sizeof(port_segment));
-	//初始化服务器端口的地址结构
+	memcpy(&portinfo,arg,sizeof(struct _port_segment));
+
+	//初始化服务器端口地地址结构
 	memset(&serv_addr,0,sizeof(struct sockaddr_in));
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_addr.s_addr = portinfo.dest_ip.s_addr;
+	
 	for(i = portinfo.min_port;i <= portinfo.max_port;i++) {
 		serv_addr.sin_port = htons(i);
 		if(do_scan(serv_addr) < 0) {
 			continue;
 		}
 	}
-	return NULL;
 }
 
 //命令行参数，-m最大端口，-a目标主机的IP地址，-n最大线程数
