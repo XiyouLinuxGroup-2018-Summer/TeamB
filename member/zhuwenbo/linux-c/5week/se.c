@@ -51,18 +51,19 @@ int main(int argc, char *argv[])
 		pid = fork();
 		if(pid == 0)
 		{
-			char rbuf[1024]= {0};
+			char rbuf[1024] = {0};
 			char wbuf[1024] = {0};
 			if((ret = send(newfd, "hello", 20, 0)) < 0)
 				my_err("send", __LINE__);
 			while(1)
 			{
+				memset(rbuf, 0, sizeof(buf));
 				if( recv(newfd, rbuf, 1024, 0) < 0)
 					my_err("recv", __LINE__);
 				rbuf[strlen(rbuf)] = '\0';
 				if(strcmp(buf, "q") == 0)
 					break;
-				printf("client: %s\n", buf);
+				printf("client: %s\n", rbuf);
 				fgets(wbuf, 1024, stdin);
 				wbuf[strlen(wbuf) - 1] = '\0';
 				if((ret = send(newfd, wbuf, strlen(wbuf) + 1, 0)) < 0)
