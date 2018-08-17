@@ -34,6 +34,6 @@ void process_conn_client(int s)
 {
 	ssize_t size = 0;
 	char buffer[1024];
-		gets(buffer);
-			write(s,buffer,size);						//发送给服务器
+	gets(buffer);
+	send(s,buffer,1024,0);						//发送给服务器
 }
