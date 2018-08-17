@@ -1,55 +1,20 @@
-#include<stdio.h>
-#include<string.h>
-#include<sys/types.h>
-#include<sys/stat.h>
-#include<fcntl.h>
-#include<termio.h>
-#include<unistd.h>
-#include<dirent.h>
-#include<stdlib.h>
-int getch(void)
-{
-     struct termios tm, tm_old;
-     int fd = 0, ch;
- 
-     if (tcgetattr(fd, &tm) < 0) {//保存现在的终端设置
-          return -1;
-     }
- 
-     tm_old = tm;
-     cfmakeraw(&tm);//更改终端设置为原始模式，该模式下所有的输入数据以字节为单位被处理
-     if (tcsetattr(fd, TCSANOW, &tm) < 0) {//设置上更改之后的设置
-          return -1;
-     }
- 
-     ch = getchar();
-	 printf("%c",ch);
-     if (tcsetattr(fd, TCSANOW, &tm_old) < 0) {//更改设置为最初的样子
-          return -1;
-     }
-    
-     return ch;
-}
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/epoll.h>
 int main(void)
 {
-	char ch;
-	while(ch = getch() ) {
-		switch(ch) {
-			case 65:
-				printf("up");
-				break;
-			case 66:
-				printf("down");
-				break;
-			case 67:
-				printf("left");
-				break;
-			case 68:
-				printf("right");
-				break;
+	int epfd,nfds;
+	struct epoll_event ev,events[5];						//ev用于注册事件，数组用于返回要处理的事件
+	epfd = epoll_create(1);									//只需要监听一个描述符——标准输入
+	ev.data.fd = STDIN_FILENO;
+	ev.events = EPOLLIN|EPOLLET;							//监听读状态同时设置ET模式
+	epoll_ctl(epfd, EPOLL_CTL_ADD, STDIN_FILENO, &ev);		//注册epoll事件
+	for(;;) {
+		nfds = epoll_wait(epfd, events, 5, -1);
+		for(int i = 0; i < nfds; i++) {
+			if(events[i].data.fd==STDIN_FILENO);
+			printf("welcome to epoll's word!\n");
+
 		}
-		if(ch == 'q')
-			break;
 	}
-	return 0;
 }
