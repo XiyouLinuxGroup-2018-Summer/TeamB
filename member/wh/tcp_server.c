@@ -51,9 +51,9 @@ int main(void)
 		pid = fork();
 		if(pid == 0) {
 			printf("connect successful!\n");
-			read(sc,buffer,1024);
-			printf("%s\n",buffer);
-			//process_conn_server(sc);
+			//read(sc,buffer,1024);
+			//printf("%s\n",buffer);
+			process_conn_server(sc);
 			close(ss);
 			exit(1);
 		}
@@ -65,15 +65,15 @@ int main(void)
 }
 
 //服务器对客户端的处理
-void process_conn_server(int s)
+void process_conn_server(int sc)
 {
 	ssize_t size = 0;
 	char buffer[1024];
 	
-		size = read(s,buffer,1024);
-		if(size == 0)
-			return;
-		printf("%s\n",buffer);	
+	recv(sc,buffer,1024,0);
+	if(size == 0)
+		return;
+	printf("%s\n",buffer);	
 }
 
 

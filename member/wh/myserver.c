@@ -77,7 +77,7 @@ int main(void)
 	memset(&serv_addr,0,sizeof(struct sockaddr_in));
 	serv_addr.sin_family = AF_INET;					//地址类型
 	serv_addr.sin_port = htons(SERV_PORT);			//端口号
-	serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);	//主机字节顺序->网络字节顺序	INADDR_ANY-可以绑定到任意网络接口
+	serv_addr.sin_addr.s_addr = htonl();	//主机字节顺序->网络字节顺序	INADDR_ANY-可以绑定到任意网络接口
 
 	//将套接字绑定到本地端口
 	if(bind(sock_fd,(struct sockaddr *)&serv_addr,sizeof(struct sockaddr_in)) < 0)
