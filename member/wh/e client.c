@@ -12,7 +12,6 @@
 #include <errno.h>      
 #include <netinet/in.h>
 #include <mysql.h>
-
 //请求类型结构体
 typedef struct reque{
 	int type;								//请求类型
@@ -33,7 +32,7 @@ struct record{
 	char data[50];							//消息内容
 };
 
-//431 添加好友通知;	
+//431 添加好友通知;
 //反馈数据类型结构体
 typedef struct dat{
 	int type;								//反馈消息类型
@@ -41,7 +40,6 @@ typedef struct dat{
 	char passwd[20];						//找回密码			2
 	char str[100][20];						//显示所有好友		3
 	struct record ar[50];						//消息记录		4
-	int flag;								//是否被处理
 }b_data;
 
 //处理发送消息请求
@@ -72,7 +70,4 @@ void Friend_Manage(int fd);
 
 //消息管理界面
 void News_Manage(int fd);
-
-//好友聊天界面
-void Chat_Friend(int fd);
 #endif

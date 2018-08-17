@@ -1,20 +1,12 @@
 #include <stdio.h>
-#include <unistd.h>
-#include <sys/epoll.h>
+#include <stddef.h>
+#include <time.h>
 int main(void)
 {
-	int epfd,nfds;
-	struct epoll_event ev,events[5];						//ev用于注册事件，数组用于返回要处理的事件
-	epfd = epoll_create(1);									//只需要监听一个描述符——标准输入
-	ev.data.fd = STDIN_FILENO;
-	ev.events = EPOLLIN|EPOLLET;							//监听读状态同时设置ET模式
-	epoll_ctl(epfd, EPOLL_CTL_ADD, STDIN_FILENO, &ev);		//注册epoll事件
-	for(;;) {
-		nfds = epoll_wait(epfd, events, 5, -1);
-		for(int i = 0; i < nfds; i++) {
-			if(events[i].data.fd==STDIN_FILENO);
-			printf("welcome to epoll's word!\n");
-
-		}
-	}
+	time_t timer;//time_t就是long int 类型
+	struct tm *tblock;
+	timer = time(NULL);//这一句也可以改成time(&timer);
+	tblock = localtime(&timer);
+	printf("Local time is: %s\n",asctime(tblock));
+	return 0;
 }
