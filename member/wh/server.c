@@ -52,7 +52,7 @@ void Send_message(request buf,b_data *back_data)
 	
 	strcpy(auf.ar[0].send_user,buf.send_user);
 	strcpy(auf.ar[0].recv_user,buf.recv_user);
-	auf.ar[0].type = 3;
+	auf.ar[0].type = 1;
 	strcpy(auf.ar[0].data,buf.data);
 	printf("%d %d %s\n",auf.type,recv_fd,auf.ar[0].data);
 	send(recv_fd,&auf,sizeof(b_data),0);//发送消息
@@ -180,18 +180,31 @@ void View_record(request buf,b_data *back_data)
 				strcpy(back_data->ar[count].recv_user,rows[1]);
 				back_data->ar[count].type = 1;
 				strcpy(back_data->ar[count].data,rows[4]);
+				count++;
 			}
 				
-			if(strcmp(rows[0],name2) == 0 && strcmp(rows[1],name1) == 0) {
+			else if(strcmp(rows[0],name2) == 0 && strcmp(rows[1],name1) == 0) {
 				strcpy(back_data->ar[count].send_user,rows[0]);
 				strcpy(back_data->ar[count].recv_user,rows[1]);
 				back_data->ar[count].type = 1;
 				strcpy(back_data->ar[count].data,rows[4]);
+				count++;
 			}
-			count++;
 	}
-	printf("%d\n",count);
 }
+
+//显示某个用户是否在线
+//参数：用户名
+//若在线，返回1，若不在线，返回2
+/*int Online(char *name)
+{
+	char query_str[200];
+	memset(query_str,0,strlen(query_str));
+
+	sprintf
+*/
+
+
 
 //处理显示所有好友请求
 //参数：用户名
