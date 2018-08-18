@@ -4,7 +4,7 @@
 int main(int argc,char *argv[])
 {
 	MYSQL mysql;
-	MYSQL_RES	*res = NULL;
+_RES	MYSQL_RES	*res = NULL;
 	MYSQL_ROW	row;
 	char *query_str = NULL;
 	int rc,i,fields;
