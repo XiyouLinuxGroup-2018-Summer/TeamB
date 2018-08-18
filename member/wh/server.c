@@ -23,20 +23,60 @@ void Send_gmessage(request buf,b_data *back_data)
 	MYSQL_ROW	rows;
 	int rc,i,fields;
 	char query_str[200];
+	int row;
 	memset(query_str,0,strlen(query_str));
 	sprintf(query_str,"select * from relationinfo where name2='%s'",buf.recv_user);	//找到此群聊中所有成员，规定关系信息表中群聊在字段2
 	
 	rc = mysql_real_query(&mysql,query_str,strlen(query_str));
 	res = mysql_store_result(&mysql);
 	fields = mysql_num_fields(res);
-	rows = mysql_fetch_row(res);
+	row = mysql_num_rows(res);
+	char ptr[row][20];
+	for(i = 0;i < row;i++) {
+		rows = mysql_fetch_row(res);
+		memset(ptr[i],0,20);
+		strcpy(ptr[i],rows[0]);
+	}
+		
 	
-	//对每个成员发送消息
-	while((rows = mysql_fetch_row(res))) {
-		back_data->type = 42;
-		memset(buf.send_user,0,20);
-		strcpy(buf.send_user,rows[0]);
-		Send_message(buf,back_data);	
+
+	//对每个除了自己以外的成员发送消息
+	for(i = 0;i < row;i++) {
+		if(strcmp(ptr[i],buf.send_user)) {
+			memset(query_str,0,strlen(query_str));
+			sprintf(query_str,"select * from userinfo where name='%s'",ptr[i]);
+			rc = mysql_real_query(&mysql,query_str,strlen(query_str));
+
+			//判断对方是否离线
+			res = mysql_store_result(&mysql);
+			fields = mysql_num_fields(res);
+			rows = mysql_fetch_row(res);
+
+			if(rows[3][0] - '0' == 0) {
+				back_data->cnt = 1;
+				break;
+			}
+			
+			int	recv_fd = rows[2][0] - '0';
+		
+			//将消息写入群聊天记录表中
+			memset(query_str,0,strlen(query_str));
+			sprintf(query_str,"insert into recordinfo(send_user,recv_user,type,data) values('%s','%s',%d,'%s')",buf.send_user,buf.recv_user,42,buf.data);
+			rc = mysql_real_query(&mysql,query_str,strlen(query_str));
+
+			//接收方存在且在线
+			back_data->cnt = 1;
+			b_data auf;
+			memset(&auf,0,sizeof(auf));
+			auf.type = 42;
+
+			strcpy(auf.ar[0].send_user,buf.send_user);
+			strcpy(auf.ar[0].recv_user,buf.recv_user);
+			auf.ar[0].type = 2;
+			strcpy(auf.ar[0].data,buf.data);
+			printf("%s------->>>>%s\n",buf.send_user,buf.data);
+			send(recv_fd,&auf,sizeof(b_data),0);	//发送消息
+		}
 	}
 
 }
@@ -58,18 +98,20 @@ void Send_message(request buf,b_data *back_data)
 	res = mysql_store_result(&mysql);	
 	fields = mysql_num_fields(res);
 	rows = mysql_fetch_row(res);
-	if(strcmp(rows[3],"0") == 0) {
+
+	if(rows[3][0] - '0'== 0) {
 		back_data->cnt = 1;				//搁置请求，等对方上线再发送
 		return;
 	}
-	recv_fd = rows[2][0] - '0';
-	
+
+	recv_fd = atoi(rows[2]);
+	printf("recv_fd = %d\n",recv_fd);
+
 	//将消息写入聊天记录表中
 	memset(query_str,0,strlen(query_str));
 	sprintf(query_str,"insert into recordinfo(send_user,recv_user,type,data) values('%s','%s',%d,'%s')",buf.send_user,buf.recv_user,41,buf.data);
 	rc = mysql_real_query(&mysql,query_str,strlen(query_str));
 
-	
 	//接收方存在且在线
 	back_data->cnt = 1;
 	b_data auf;
@@ -80,7 +122,6 @@ void Send_message(request buf,b_data *back_data)
 	strcpy(auf.ar[0].recv_user,buf.recv_user);
 	auf.ar[0].type = 1;
 	strcpy(auf.ar[0].data,buf.data);
-	printf("%d %d %s\n",auf.type,recv_fd,auf.ar[0].data);
 	send(recv_fd,&auf,sizeof(b_data),0);//发送消息
 
 
@@ -130,6 +171,34 @@ void Delete_Friend(request buf,b_data *back_data)
 //处理创建群聊请求
 void Create_Group(request buf,b_data *back_data)
 {
+	MYSQL_RES	*res = NULL;
+	
+	int rc,i,fields;
+	int rows;
+	char query_str[200];
+	int recv_fd;
+	//判断是否存在此群聊
+	memset(query_str,0,strlen(query_str));
+	sprintf(query_str,"select * from relationinfo where name2='%s'",buf.data);
+	rc = mysql_real_query(&mysql,query_str,strlen(query_str));
+	res = mysql_store_result(&mysql);
+	rows = mysql_num_rows(res);
+
+	//判断该群聊是否存在
+	if(rows != 0) {
+		back_data->cnt = 0;
+		return;
+	}
+
+	//若不存在则创建
+	memset(query_str,0,strlen(query_str));
+	sprintf(query_str,"insert into relationinfo(name1,name2,power) values('%s','%s',%d)",buf.send_user,buf.data,1);
+	rc = mysql_real_query(&mysql,query_str,strlen(query_str));
+	if(rc != 0) {
+		back_data->cnt = 0;
+		return;
+	}
+	back_data->cnt = 1;
 
 }
 
@@ -144,12 +213,14 @@ void Add_Friend(request buf,b_data * back_data)
 	char query_str[200];					//存放mysql语句
 	int recv_fd;
 	//判断双方是否为好友
-	sprintf(query_str,"sleect * from relationinfo where name1='%s' and name2='%s'",buf.send_user,buf.recv_user);
+	memset(query_str,0,strlen(query_str));
+	sprintf(query_str,"select * from relationinfo where name1='%s' and name2='%s'",buf.send_user,buf.recv_user);
 	rc = mysql_real_query(&mysql,query_str,strlen(query_str));
 	if(rc == 0) {
 		back_data->cnt = 0;					//说明双方已经是好友了
 		return;	
 	}
+
 	//判断对方是否离线
 	mysql_store_result(&mysql);
 	memset(query_str,0,sizeof(strlen(query_str)));
@@ -160,6 +231,7 @@ void Add_Friend(request buf,b_data * back_data)
 		back_data->cnt = 0;
 		return;
 	}
+
 	res = mysql_store_result(&mysql);
 	row = mysql_num_rows(res);
 	fields = mysql_num_fields(res);
@@ -458,7 +530,7 @@ void *handle_all(void *fd)					//int fd
 				send(conn_fd,&back_data,sizeof(b_data),0);
 			case 0300:
 				//处理发送群聊消息请求
-				printf("%s %s\n",buf.send_user,buf.recv_user);
+				printf("send_user = %s recv_user = %s\n",buf.send_user,buf.recv_user);
 				memset(&back_data,0,sizeof(b_data));
 				Send_gmessage(buf,&back_data);
 				send(conn_fd,&back_data,sizeof(b_data),0);

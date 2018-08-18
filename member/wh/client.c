@@ -40,7 +40,7 @@ void *fback(void *arg)
 				memcpy((void *)&cr[cnt++],(void *)&back_data.ar[0],sizeof(struct record));
 			}
 			else if(back_data.type == 41) {					//正在和此好友聊天
-				if(strcmp(user,back_data.ar[0].recv_user) == 0 && strcmp(friend,back_data.ar[0].send_user) == 0) {
+				if(strcmp(friend,back_data.ar[0].send_user) == 0) {
 					printf("%s:%-50s\n",friend,back_data.ar[0].data);
 					back_data.flag = 1;
 				}
@@ -50,12 +50,12 @@ void *fback(void *arg)
 				}
 			}
 			else if(back_data.type == 42) {					//正在水群
-				if(strcmp(user,back_data.ar[0].recv_user) == 0 && strcmp(group,back_data.ar[0].send_user) == 0) {	
+				if(strcmp(group,back_data.ar[0].recv_user) == 0) {	
 					printf("%s:%-50s\n",back_data.ar[0].send_user,back_data.ar[0].data);
 					back_data.flag = 1;
 				}
 				else {										//没有水群
-					printf("您有一条来自群聊%s的新消息，请及时查看\n",back_data.ar[0].send_user);
+					printf("您有一条来自群聊%s的新消息，请及时查看\n",back_data.ar[0].recv_user);
 					memcpy((void *)&cr[cnt++],(void *)&back_data.ar[0],sizeof(struct record));
 				}
 			}
@@ -181,6 +181,7 @@ void Main_menu(int fd)
 		printf("1.好友管理\n2.群管理\n3.消息管理\n4.账号管理\nq.返回上一层\n");
 		while(getchar() != '\n');
 	}
+	memset(user,0,20);
 	return;
 }
 
@@ -223,7 +224,6 @@ void Friend_Manage(int fd)
 				scanf("%s",buf.recv_user);
 				//显示之前五十条聊天记录
 				memset(friend,0,20);
-				strcpy(friend,buf.recv_user);
 				strcpy(friend_name,buf.recv_user);
 				buf.type = 0250;
 				strcpy(buf.send_user,user);
@@ -251,6 +251,7 @@ void Friend_Manage(int fd)
 
 				//发送消息
 				printf("1.发送消息\nq.退出\n");
+				strcpy(friend,buf.recv_user);			//设置正在聊天的好友
 				while(scanf("%d",&choice2) && choice2 != 'q') {
 					switch(choice2) {
 						case 1:
@@ -275,6 +276,7 @@ void Friend_Manage(int fd)
 					}
 					printf("1.发送消息\nq.退出\n");
 				}
+				memset(friend,0,20);				//将正在聊天的好友置0
 				break;
 			case 2:
 				//添加好友
@@ -492,7 +494,6 @@ void Chat_Group(int fd)
 	printf("请输入群聊名称:");
 	scanf("%s",buf.recv_user);
 	memset(group,0,20);
-	strcpy(group,buf.recv_user);
 
 	//显示出群聊最近的聊天记录
 	//初始化请求
@@ -523,11 +524,11 @@ void Chat_Group(int fd)
 
 	//发送消息
 	printf("1.发送消息\nq.退出\n");
-	
+	strcpy(group,buf.recv_user);
+	while(getchar() != '\n');				//清空缓冲区	
 	while(scanf("%c",&choice2) && choice2 != 'q') {
-		while(getchar() != '\n');
 		switch(choice2) {
-			case 1:
+			case '1':
 				memset(&buf,0,sizeof(buf));		//清空请求结构体
 				printf("请输入你想发送的内容:");
 				scanf("%s",buf.data);
@@ -547,8 +548,10 @@ void Chat_Group(int fd)
 				printf("请输入正确的选项\n");
 				break;
 		}
+		while(getchar() !='\n');
 		printf("1.发送消息\nq.退出\n");
 	}
+	memset(group,0,20);
 
 
 }
@@ -559,17 +562,16 @@ void Group_Manage(int fd)
 	char choice;
 	int i;
 	char create_group[20];
-
-	printf("1.群聊\n2.创建群\n3.解散群\n4.加入群\nq.退出");
+	while(getchar() != '\n');
+	printf("1.群聊\n2.创建群\n3.解散群\n4.加入群\nq.退出\n");
 	while(scanf("%c",&choice) && choice != 'q') {
-		while(getchar() != '\n');			//清空缓冲区
 		switch(choice) {
 			//群聊
-			case 1:
+			case '1':
 				Chat_Group(fd);
 				break;
 			//创建群
-			case 2:
+			case '2':
 				printf("请输入要创建的群名称:");
 				memset(create_group,0,20);
 				scanf("%s",create_group);
@@ -581,7 +583,7 @@ void Group_Manage(int fd)
 
 				//发送请求
 				count = 0;
-				memset(back_data,0,sizeof(b_data));
+				memset(&back_data,0,sizeof(b_data));
 				send(fd,&buf,sizeof(buf),0);
 			
 				while(1) {
@@ -599,6 +601,7 @@ void Group_Manage(int fd)
 				printf("请输入正确的选项\n");
 				break;
 		}
+		while(getchar() != '\n');			//清空缓冲区
 		printf("1.群聊\n2.创建群\n3.解散群\n4.加入群\nq.退出");
 	}
 }
