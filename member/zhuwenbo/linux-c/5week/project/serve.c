@@ -23,26 +23,47 @@ sprintf(sql_insert, "INSERT INTO table values('%s','%d');", name, age);
 MYSQL *con;         //mysql连接
 MYSQL_RES *res = NULL;  //mysql记录集
 MYSQL_ROW row;      //字符串数组，mysql记录行
+/*mysql*/
 char *user = "debian-sys-maint";                                            
 char *key = "NHqLsqHfc2mBjaKt";
 char *host = "localhost";
 char *db = "user";
 
+/*线程池任务*/
 void pool_add_worker(void(*process)(char *str, int socket), char *str, int socket);
 void *thread_routine(void *arg);
+/*初始化线程池*/
 void pool_init(int max_thread_num);
+/*销毁线程池*/
 int pool_destroy();
+/*线程池回调*/
 void process(char *str, int socket);
+/*错误处理*/
 void my_err(char *str, int line);
+/*用户注册*/
 void user_login(char *str, int socket); 
+/*用户登录*/
 void user_enter(char *str, int socket);
+/*找回密码*/
 void find_passwd(char *str, int socket);
+/*删除离线用户套接字*/
 void rm_socket(int socket);
+/*发送消息*/
 void send_message(char *str, int socket);
+/*添加好友*/
 void add_friend(char *str, int socket);
+/*是否添加*/
 void agree_friend(char *str, int socket);
+/*删除好友*/
 void rm_friend(char *str, int socket);
+/*查看好友列表*/
 void watch_friend(char *str, int socket);
+/*查看历史记录*/
+void find_history(char *str, int socket);
+/*屏蔽好友消息*/
+void shield_friend(char *str, int socket);
+
+
 
 /*任务结构*/
 typedef struct worker
@@ -205,12 +226,35 @@ void process(char *str, int socket)
 		add_friend(str, socket);
 	else if(strncmp(str, "~@", 2) == 0)            //是否同意添加
 		agree_friend(str, socket);
-	else if(strncmp(str, "~rm:", 4) == 0)      //删除好友
+	else if(strncmp(str, "~rm:", 4) == 0)          //删除好友
  		rm_friend(str, socket);
 	else if(strcmp(str, "~") == 0)      		   //查看好友列表
-	 watch_friend(str, socket);
+	 	watch_friend(str, socket);
+	else if(strncmp(str, "~history:", 9) == 0)     //查看聊天记录
+		find_history(str, socket);
+	else if(strncmp(str, "~shield:", 8) == 0)      //屏蔽好友  
+		 shield_friend(str,socket);
 	else if(strncmp(str, "~", 1) == 0)		       //发送消息
 		send_message(str, socket);
+	/*接收错误消息*/
+	else
+	{
+		int count = 0;
+		char rest[200] = {0};
+		int len = 0, recv_length = 200;
+		while(len = recv(socket, rest, recv_length, 0))
+		{
+			if(count == 200)
+				break;
+			else
+			{
+				count += len;
+				recv_length -= len;
+			}
+		}
+		if(len < 0)
+			my_err("recv", __LINE__);
+	}
 }
 
 
@@ -223,7 +267,7 @@ void user_login(char *str, int socket)
 	int i, j = 0, count = 0;
 	for(i = 0; str[i] != '\0'; i++)
 	{
-		if(str[i] == ':')
+		if(str[i] == ':' && count < 3)
 		{
 			count++;
 			i++;
@@ -261,7 +305,7 @@ void user_enter(char *str, int socket)
 	/*解析用户姓名及密码*/
 	for(i = 0; str[i] != '\0'; i++)
 	{
-		if(str[i] == ':')
+		if(str[i] == ':' && count < 2)
 		{
 			count++;
 			i++;
@@ -277,13 +321,27 @@ void user_enter(char *str, int socket)
 	if(mysql_real_query(con, sql_select, strlen(sql_select)) )
 		my_err("select", __LINE__);
 	res = mysql_store_result(con);
-
+	/*查看是否有离线消息*/
 	MYSQL_RES *r = NULL;
 	MYSQL_ROW ro;
 	char *sql_se = "SELECT name1, name2, message from record";
 	if( mysql_real_query(con, sql_se, strlen(sql_se)) )
 		my_err("select", __LINE__);
 	r = mysql_store_result(con);
+	/*上线通知好友*/
+	char *sql_friend = "SELECT name1, name2 from friend";
+	MYSQL_RES *inf = NULL;
+	MYSQL_ROW rec;
+	if( mysql_real_query(con, sql_friend, strlen(sql_friend)) )
+		my_err("online", __LINE__);
+	inf = mysql_store_result(con);
+	/*判断好友是否在线*/
+	char *sql_online = "SELECT username, socket from online";
+	MYSQL_RES *tr = NULL;
+	MYSQL_ROW hh;
+	if( mysql_real_query(con, sql_online, strlen(sql_online)) )
+		my_err("online", __LINE__);
+	tr = mysql_store_result(con);
 
 	while(row = mysql_fetch_row(res))
 	{
@@ -298,6 +356,39 @@ void user_enter(char *str, int socket)
 			strcpy(flag, "success");
 			if(send(socket, flag, send_length, 0) < 0)
 				my_err("send", __LINE__);
+			/*上线通知好友*/
+			while(rec = mysql_fetch_row(inf))
+			{
+				if(strcmp(name, rec[0]) == 0)
+				{
+					while(hh = mysql_fetch_row(tr))
+					{
+						if(strcmp(hh[0], rec[1]) == 0)
+						{
+							char message[200] = {0};
+							sprintf(message, "#您的好友%s上线啦", rec[0]);
+							printf("message = %s\n", message);
+							if( send(atoi(hh[1]), message, send_length, 0) < 0)
+								my_err("send", __LINE__);
+						}
+					}
+				}
+				else if(strcmp(name, rec[1]) == 0)
+				{
+					while(hh = mysql_fetch_row(tr))
+					{
+						if(strcmp(hh[0], rec[0]) == 0)
+						{
+							char message[200] = {0};
+							sprintf(message, "#您的好友%s上线啦", rec[1]);
+							printf("message = %s\n", message);
+							if( send(atoi(hh[1]), message, send_length, 0) < 0)
+								my_err("send", __LINE__);
+						}
+					}
+				}
+			}
+
 			/*用户上线，查询是否有离线消息 如果有发送离线消息*/
 			while(ro = mysql_fetch_row(r))
 			{
@@ -326,7 +417,6 @@ void user_enter(char *str, int socket)
 	strcpy(flag, "fault");
 	if(send(socket, flag, send_length, 0) < 0)
 		my_err("send", __LINE__);
-
 }
 
 /*找回用户名*/
@@ -338,7 +428,7 @@ void find_passwd(char *str, int socket)
 	/*解析出问题和名字*/
 	for(i = 0; str[i] != '\0'; i++)
 	{
-		if(str[i] == ':')
+		if(str[i] == ':' && count < 2)
 		{
 			count++;
 			i++;
@@ -388,9 +478,10 @@ void send_message(char *str, int socket)
 	char message[200] = {0};
 	int i, j = 0, count = 0;
 	int sock_fd;
+	int flag = 0;                  //判断用户是离线还是被标记
 	for(i = 1; ; i++)
 	{
-		if(str[i] == ':')
+		if(str[i] == ':' && count < 1)
 		{
 			count++;
 			i++;
@@ -408,7 +499,15 @@ void send_message(char *str, int socket)
 		my_err("select", __LINE__);
 	res = mysql_store_result(con);
 	count = 0;
-	printf("%s %s\n", name, message);
+	printf("send name = %s send message = %s\n", name, message);
+	/*检查好友是否被屏蔽*/
+	char *sql_shield = "SELECT name1, name2, status from friend";
+	MYSQL_RES *re = NULL;
+	MYSQL_ROW ro;
+	if( mysql_real_query(con, sql_shield, strlen(sql_shield)) )
+		my_err("shield", __LINE__);
+	re = mysql_store_result(con);
+
 	while(row = mysql_fetch_row(res))
 	{
 		if(strcmp(name, row[0]) == 0)
@@ -419,6 +518,15 @@ void send_message(char *str, int socket)
 		if(socket == atoi(row[1]))
 		{
 			strcpy(name2, row[0]);
+			/*判断是否被屏蔽*/
+			while(ro = mysql_fetch_row(re))
+			{
+				if( (strcmp(name, ro[0]) == 0 && strcmp(name2, ro[1]) == 0) || (strcmp(name2, ro[0]) == 0 && strcmp(name, ro[1]) == 0) )
+				{
+					if(atoi(ro[2]) == 0)
+						return;
+				}
+			}
 			strcpy(send_message, row[0]);
 			send_message[strlen(send_message)] = ':';
 			send_message[strlen(send_message)] = '\0';
@@ -431,10 +539,13 @@ void send_message(char *str, int socket)
 				my_err("send", __LINE__);
 			/*将消息添加到聊天记录中*/
 			char sql_history[100] = {0};
-			sprintf(sql_history, "INSERT INTO history(name1, name2, message)values('%s','%s,'%s')", name, name2, message);
+			sprintf(sql_history, "INSERT INTO history(name1, name2, message)values('%s','%s','%s')", name2, name, message);
+			if( mysql_real_query(con, sql_history, strlen(sql_history)) )
+				my_err("history", __LINE__);
 			return;
-		}
+		}	
 	}
+
 	/*保存离线用户消息*/
 	send_message[strlen(send_message) - 1] = '\0';
 	printf("send_message = %s, name = %s, message = %s\n", send_message, name, message);
@@ -454,7 +565,7 @@ void add_friend(char *str, int socket)
 	int i, j= 0, count = 0;
 	for(i = 0; str[i] != '\0'; i++)
 	{
-		if(str[i] == ':')
+		if(str[i] == ':' && count < 1)
 		{
 			i++;
 			count++;
@@ -500,7 +611,7 @@ void agree_friend(char *str, int socket)
 	int sock_fd;
 	for(i = 0; str[i] != '\0'; i++)
 	{
-		if(str[i] == ':')
+		if(str[i] == ':' && count < 1)
 		{
 			count++;
 			i++;
@@ -539,7 +650,7 @@ void agree_friend(char *str, int socket)
 	else
 	{
 		char sql[100] = {0};
-		sprintf(sql, "INSERT INTO friend(name1, name2) values('%s', '%s')", name, &myname[1]);
+		sprintf(sql, "INSERT INTO friend(name1, name2, status) values('%s', '%s', '1')", name, &myname[1]);
 		printf("sql = %s\n", sql);
 		if( mysql_real_query(con, sql, strlen(sql)) )
 			my_err("add", __LINE__);
@@ -559,7 +670,7 @@ void rm_friend(char *str, int socket)
 	int i, count = 0, j = 0;
 	for(i = 0; str[i] != '\0'; i++)
 	{
-		if(str[i] == ':')
+		if(str[i] == ':' && count < 1)
 		{
 			count++;
 			i++;
@@ -684,8 +795,113 @@ void watch_friend(char *str, int socket)
 /*查看聊天记录*/
 void find_history(char *str, int socket)
 {
-	
+	char name1[20] = {0};
+	char name2[20] = {0};
+	int i, j = 0, count = 0;
+	for(i = 0; str[i] != '\0'; i++)
+	{
+		if(str[i] == ':' && count < 1)
+			count++, i++;
+		if(count == 1)
+			name2[j++] = str[i];
+	}
+	printf("history name2 = %s\n", name2);
+	char *sql_select = "SELECT username, socket from online";
+	if( mysql_real_query(con, sql_select, strlen(sql_select)) )
+		my_err("select", __LINE__);
+	res = mysql_store_result(con);
+	while(row = mysql_fetch_row(res))
+	{
+		if(socket == atoi(row[1]))
+		{
+			strcpy(name1, row[0]);
+			break;
+		}
+	}
+	char *sql_se = "SELECT name1, name2, message from history";
+	if( mysql_real_query(con, sql_se, strlen(sql_se)) )
+		my_err("select", __LINE__);
+	res = mysql_store_result(con);
+	while(row = mysql_fetch_row(res))
+	{
+		if(strcmp(name1, row[0]) == 0 && strcmp(name2, row[1]) == 0)
+		{
+			char message[200] = "history:";
+			strcat(message, row[0]);
+			message[strlen(message)] = ':';
+			strcat(message, row[2]);
+			printf("histor message = %s\n", message);
+			if(send(socket, message, send_length, 0) < 0)
+				my_err("send", __LINE__);
+		}
+		else if(strcmp(name1, row[1]) == 0 && strcmp(name2, row[0]) == 0)
+		{
+			char message[200] = "history:";
+			strcat(message, row[1]);
+			message[strlen(message)] = ':';
+			char *p = "                    ";
+			strcat(message, p);
+			strcat(message, row[2]);
+			printf("histor message = %s\n", message);
+			if(send(socket, message, send_length, 0) < 0)
+				my_err("send", __LINE__);
+		}
+	}
 }
+
+/*屏蔽好友消息*/
+void shield_friend(char *str, int socket)
+{
+	char name1[20] = {0};
+	char name2[20] = {0};
+	int i, j = 0, count = 0;
+	for(i = 0; str[i] != '\0'; i++)
+	{
+		if(str[i] == ':' && count < 1)
+			count++, i++;
+		if(count == 1)
+			name2[j++] = str[i];
+	}
+	/*找出发起屏蔽的人*/
+	char *sql_select = "SELECT username, socket from online";
+	if( mysql_real_query(con, sql_select, strlen(sql_select)) )
+		my_err("select", __LINE__);
+	res = mysql_store_result(con);
+	/*找到好友列表中他们的位置*/
+	char *sql_friend = "SELECT name1, name2, status from friend";
+	MYSQL_RES *re = NULL;
+	MYSQL_ROW ro;
+	if( mysql_real_query(con, sql_friend, strlen(sql_friend)) )
+		my_err("friend", __LINE__);
+	re = mysql_store_result(con);
+
+	while(row = mysql_fetch_row(res))
+	{
+		if(socket == atoi(row[1]))
+		{
+			strcpy(name1, row[0]);
+			while(ro = mysql_fetch_row(re))
+			{
+				if( strcmp(name1, ro[0]) == 0 && strcmp(name2, ro[1]) == 0 )
+				{
+					char up[100] = {0};
+					sprintf(up, "UPDATE friend set status='0' where name1='%s'&&name2='%s'", name1, name2);
+					if(mysql_real_query(con, up, strlen(up)) )
+						my_err("update", __LINE__);
+				}
+				else if(strcmp(name1, ro[1]) == 0 && strcmp(name2, ro[0]) == 0)
+				{
+					char up[100] = {0};
+					sprintf(up, "UPDATE friend set status='0' where name1='%s'&&name2='%s'", name2, name1);
+					if(mysql_real_query(con, up, strlen(up)) )
+						my_err("update", __LINE__);
+				}
+			}
+		}
+	}
+}
+
+
 
 int main(void)
 {

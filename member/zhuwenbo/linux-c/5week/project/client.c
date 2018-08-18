@@ -265,6 +265,21 @@ void recv_record(char *str)
 	CLOSE
 }
 
+/*查看历史记录*/
+void recv_history(char *str)
+{
+	int i = 0, j = 0, count = 0;
+	char message[200] = {0};
+	for(; str[i] != '\0'; i++)
+	{
+		if(str[i] == ':')
+			count++, i++;
+		if(count == 2)
+			message[j++] = str[i];
+	}
+	printf("%s\n", message);
+}
+
 void *send_message(void *arg)
 {
 	int socket = *(int *)arg;
@@ -276,6 +291,14 @@ void *send_message(void *arg)
 		getchar();
 		scanf("%[^\n]", message1);
 		strcat(message, message1);
+		if(strcmp(message, "~") == 0)
+			printf("-----------------------好友列表------------------------\n");
+		else if(strncmp(message, "~history:", 9) == 0)
+		{
+			GREEN
+			printf("----------消息记录---------\n");
+			CLOSE
+		}
 		if(send(socket, message, send_length, 0) < 0)
 			my_err("send", __LINE__);
 		memset(message, 0, sizeof(message));
@@ -288,11 +311,15 @@ void *recv_message(void *arg)
 {
 	int socket = *(int *)arg;
 	char readbuf[200] = {0};
-	int len;
+	int i, j, k;
+	char name[20] = {0};
+	char lastname[20] = {0};
+	int len, count;
+	int recv_length;
 	while(1)
 	{	
-		int len, count = 0;
-		int recv_length = 200;
+		len =  count = 0;
+     	recv_length = 200;
 		while( (len = recv(socket, readbuf, recv_length, 0)) )
 		{
 			count += len;
@@ -305,10 +332,12 @@ void *recv_message(void *arg)
 		if(len == -1)
 			my_err("recv", __LINE__);
 		readbuf[strlen(readbuf)] = '\0';
+		/*添加好友*/
 		if(strncmp(readbuf, "add", 3) == 0)
 		{
 			add_friend(readbuf, socket);
 		}
+		/*接收通知消息*/
 		else if(strncmp(readbuf, "#", 1) == 0)          //通知
 		{
 			printf("----------------------------------------------------\n");
@@ -317,10 +346,15 @@ void *recv_message(void *arg)
 			CLOSE
 			printf("----------------------------------------------------\n");
 		}
+		/*查看好友列表*/
 		else if(strncmp(readbuf, "@friend:", 8) == 0)
 			watch_friend(readbuf);
+		/*接收离线消息*/
 		else if(strncmp(readbuf, "off:", 4) == 0)
 			recv_record(readbuf);
+		/*查看历史记录*/
+		else if(strncmp(readbuf, "history:", 8) == 0)
+			recv_history(readbuf);
 		else
 			printf("\t\t\t%s\n", readbuf);
 		memset(readbuf, 0, sizeof(readbuf));
@@ -385,6 +419,14 @@ int main(int argc, char *argv[])
 	printf("查看好友列表             ");
 	RED
 	printf("按回车即可\n");
+	CLOSE
+	printf("查看历史记录输入         ");
+	RED
+	printf("history:加想要查看的用户名\n");
+	CLOSE
+	printf("屏蔽好友输入             ");
+	RED
+	printf("shield:加好友名字\n");
 	CLOSE
 	pthread_t tid1, tid2;
 	pthread_create(&tid1, NULL, send_message, (void *)&cli_fd);
