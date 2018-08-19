@@ -40,17 +40,27 @@ typedef struct dat{
 	int cnt;								//是否成功			1
 	char passwd[20];						//找回密码			2
 	char str[100][20];						//显示所有好友		3
-	struct record ar[50];						//消息记录		4
+	struct record ar[50];					//消息记录			4
 	int flag;								//是否被处理
 }b_data;
 
-//处理发送消息请求
+//处理发送群聊消息请求
+void Send_gmessage(request buf,b_data *back_data);
+
+//处理发送私人消息请求
 void Send_message(request buf,b_data *back_data);
+
 //处理添加好友请求
 void Add_Friend(request buf,b_data * back_data);
 
-//处理查看聊天记录请求
+//处理查看私人聊天记录请求
 void View_record(request buf,b_data *back_data);
+
+//处理创建群聊请求
+void Create_Group(request buf,b_data *back_dat);
+
+//处理查看群聊天记录请求
+void View_grecord(request buf,b_data *back_data);
 
 //处理显示所有好友请求
 void display_all(request buf,b_data *back_data);
@@ -75,4 +85,7 @@ void News_Manage(int fd);
 
 //好友聊天界面
 void Chat_Friend(int fd);
+
+//群聊管理界面
+void Group_Manage(int fd);
 #endif

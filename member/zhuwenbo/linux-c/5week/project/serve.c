@@ -23,23 +23,53 @@ sprintf(sql_insert, "INSERT INTO table values('%s','%d');", name, age);
 MYSQL *con;         //mysql连接
 MYSQL_RES *res = NULL;  //mysql记录集
 MYSQL_ROW row;      //字符串数组，mysql记录行
+/*mysql*/
 char *user = "debian-sys-maint";                                            
 char *key = "NHqLsqHfc2mBjaKt";
 char *host = "localhost";
 char *db = "user";
 
+/*线程池任务*/
 void pool_add_worker(void(*process)(char *str, int socket), char *str, int socket);
 void *thread_routine(void *arg);
+/*初始化线程池*/
 void pool_init(int max_thread_num);
+/*销毁线程池*/
 int pool_destroy();
+/*线程池回调*/
 void process(char *str, int socket);
+/*错误处理*/
 void my_err(char *str, int line);
+/*用户注册*/
 void user_login(char *str, int socket); 
+/*用户登录*/
 void user_enter(char *str, int socket);
+/*找回密码*/
 void find_passwd(char *str, int socket);
+/*删除离线用户套接字*/
 void rm_socket(int socket);
+/*发送消息*/
 void send_message(char *str, int socket);
+/*添加好友*/
 void add_friend(char *str, int socket);
+/*是否添加*/
+void agree_friend(char *str, int socket);
+/*删除好友*/
+void rm_friend(char *str, int socket);
+/*查看好友列表*/
+void watch_friend(char *str, int socket);
+/*查看历史记录*/
+void find_history(char *str, int socket);
+/*屏蔽好友消息*/
+void shield_friend(char *str, int socket);
+/*创建群聊*/
+void create_group(char *str, int socket);
+/*删除群聊*/
+void rm_group(char *str, int socket);
+/*申请加群*/
+void add_group(char *str, int socket);
+/*是否同意*/
+void aod_group(char *str, int socket);
 
 /*任务结构*/
 typedef struct worker
@@ -192,14 +222,67 @@ void process(char *str, int socket)
 {
 	printf("str = %s\n", str);
 	printf("socket =  %d\n", socket);
-	if(strncmp(str, "login", 5) == 0)
+	if(strncmp(str, "login:", 6) == 0)             //注册用户
 		user_login(str, socket);
-	if(strncmp(str, "enter", 5) == 0)
+
+	else if(strncmp(str, "enter:", 6) == 0)        //登录
 		user_enter(str, socket);
-	if(strncmp(str, "find_passwd", 11) == 0)
+
+	else if(strncmp(str, "find_passwd:", 12) == 0) //找回密码
 		find_passwd(str, socket);
-	if(strncmp(str, "~", 1) == 0)
+
+	else if(strncmp(str, "~add:", 5) == 0)         //添加好友
+		add_friend(str, socket);
+
+	else if(strncmp(str, "~@", 2) == 0)            //是否同意添加
+		agree_friend(str, socket);
+
+	else if(strncmp(str, "~rm:", 4) == 0)          //删除好友
+ 		rm_friend(str, socket);
+
+	else if(strcmp(str, "~") == 0)      		   //查看好友列表
+	 	watch_friend(str, socket);
+
+	else if(strncmp(str, "~history:", 9) == 0)     //查看聊天记录
+		find_history(str, socket);
+
+	else if(strncmp(str, "~shield:", 8) == 0)      //屏蔽好友  
+		 shield_friend(str,socket);
+
+	else if(strncmp(str, "!create:", 8) == 0)      //创建群聊
+		create_group(str, socket);
+
+	else if(strncmp(str, "~rm_group:", 10) == 0)   //删除群聊
+		rm_group(str, socket);
+
+	else if(strncmp(str, "~add_g:", 7) == 0)       //申请加群
+		add_group(str, socket);
+	
+	else if(strncmp(str, "~@@", 3) == 0)
+		a
+
+	else if(strncmp(str, "~", 1) == 0)		       //发送消息
 		send_message(str, socket);
+
+	/*接收错误消息*/
+	else
+	{
+		int count = 0;
+		char rest[200] = {0};
+		int len = 0, recv_length = 200;
+		while(len = recv(socket, rest, recv_length, 0))
+		{
+			if(count == 200)
+				break;
+			else
+			{
+				count += len;
+				recv_length -= len;
+			}
+		}
+		if(len < 0)
+			my_err("recv", __LINE__);
+	}
 }
 
 
@@ -212,7 +295,7 @@ void user_login(char *str, int socket)
 	int i, j = 0, count = 0;
 	for(i = 0; str[i] != '\0'; i++)
 	{
-		if(str[i] == ':')
+		if(str[i] == ':' && count < 3)
 		{
 			count++;
 			i++;
@@ -245,11 +328,12 @@ void user_enter(char *str, int socket)
 {
 	char name[20] = {0};
 	char passwd[20] = {0};
+	char flag[200] = {0};
 	int i, j = 0, count = 0;
 	/*解析用户姓名及密码*/
 	for(i = 0; str[i] != '\0'; i++)
 	{
-		if(str[i] == ':')
+		if(str[i] == ':' && count < 2)
 		{
 			count++;
 			i++;
@@ -265,6 +349,28 @@ void user_enter(char *str, int socket)
 	if(mysql_real_query(con, sql_select, strlen(sql_select)) )
 		my_err("select", __LINE__);
 	res = mysql_store_result(con);
+	/*查看是否有离线消息*/
+	MYSQL_RES *r = NULL;
+	MYSQL_ROW ro;
+	char *sql_se = "SELECT name1, name2, message from record";
+	if( mysql_real_query(con, sql_se, strlen(sql_se)) )
+		my_err("select", __LINE__);
+	r = mysql_store_result(con);
+	/*上线通知好友*/
+	char *sql_friend = "SELECT name1, name2 from friend";
+	MYSQL_RES *inf = NULL;
+	MYSQL_ROW rec;
+	if( mysql_real_query(con, sql_friend, strlen(sql_friend)) )
+		my_err("online", __LINE__);
+	inf = mysql_store_result(con);
+	/*判断好友是否在线*/
+	char *sql_online = "SELECT username, socket from online";
+	MYSQL_RES *tr = NULL;
+	MYSQL_ROW hh;
+	if( mysql_real_query(con, sql_online, strlen(sql_online)) )
+		my_err("online", __LINE__);
+	tr = mysql_store_result(con);
+
 	while(row = mysql_fetch_row(res))
 	{
 		/*登录成功*/
@@ -275,15 +381,70 @@ void user_enter(char *str, int socket)
 			sprintf(sql_socket, "INSERT INTO online(username, socket) values('%s', '%d')", row[0], socket);
 			if( mysql_real_query(con, sql_socket, strlen(sql_socket)) )
 				my_err("INSERT", __LINE__);
-			char flag[200] = "success";
+			strcpy(flag, "success");
 			if(send(socket, flag, send_length, 0) < 0)
 				my_err("send", __LINE__);
+			/*上线通知好友*/
+			while(rec = mysql_fetch_row(inf))
+			{
+				if(strcmp(name, rec[0]) == 0)
+				{
+					while(hh = mysql_fetch_row(tr))
+					{
+						if(strcmp(hh[0], rec[1]) == 0)
+						{
+							char message[200] = {0};
+							sprintf(message, "#您的好友%s上线啦", rec[0]);
+							printf("message = %s\n", message);
+							if( send(atoi(hh[1]), message, send_length, 0) < 0)
+								my_err("send", __LINE__);
+						}
+					}
+				}
+				else if(strcmp(name, rec[1]) == 0)
+				{
+					while(hh = mysql_fetch_row(tr))
+					{
+						if(strcmp(hh[0], rec[0]) == 0)
+						{
+							char message[200] = {0};
+							sprintf(message, "#您的好友%s上线啦", rec[1]);
+							printf("message = %s\n", message);
+							if( send(atoi(hh[1]), message, send_length, 0) < 0)
+								my_err("send", __LINE__);
+						}
+					}
+				}
+			}
+
+			/*用户上线，查询是否有离线消息 如果有发送离线消息*/
+			while(ro = mysql_fetch_row(r))
+			{
+				printf("-----\n");
+				if(strcmp(name, ro[1]) == 0)
+				{
+					char *off = "off:";
+					char off_message[200] = {0};
+					strcpy(off_message, off);
+					char *s = " send to you  ";
+					strcat(off_message, ro[0]);
+					strcat(off_message, s);
+					strcat(off_message, ro[2]);
+					printf("off_message = %s\n", off_message);
+					if(send(socket, off_message, send_length, 0) < 0)
+						my_err("send", __LINE__);
+					/*发送成功后，将消息从数据库中删除*/
+					char sql_delete[100];
+					sprintf(sql_delete, "DELETE from record where name1='%s'&&name2='%s'&&message='%s'", ro[0],ro[1],ro[2]);
+					mysql_real_query(con, sql_delete, strlen(sql_delete));
+				}
+			}
 			return;
 		}
 	}
-	if(send(socket, "fault", 8, 0) < 0)
+	strcpy(flag, "fault");
+	if(send(socket, flag, send_length, 0) < 0)
 		my_err("send", __LINE__);
-
 }
 
 /*找回用户名*/
@@ -295,7 +456,7 @@ void find_passwd(char *str, int socket)
 	/*解析出问题和名字*/
 	for(i = 0; str[i] != '\0'; i++)
 	{
-		if(str[i] == ':')
+		if(str[i] == ':' && count < 2)
 		{
 			count++;
 			i++;
@@ -340,13 +501,15 @@ void rm_socket(int socket)
 void send_message(char *str, int socket)
 {
 	char name[20] = {0};
+	char name2[20] = {0};
 	char send_message[200] = {0};
 	char message[200] = {0};
 	int i, j = 0, count = 0;
 	int sock_fd;
+	int flag = 0;                  //判断用户是离线还是被标记
 	for(i = 1; ; i++)
 	{
-		if(str[i] == ':')
+		if(str[i] == ':' && count < 1)
 		{
 			count++;
 			i++;
@@ -364,7 +527,15 @@ void send_message(char *str, int socket)
 		my_err("select", __LINE__);
 	res = mysql_store_result(con);
 	count = 0;
-	printf("%s %s\n", name, message);
+	printf("send name = %s send message = %s\n", name, message);
+	/*检查好友是否被屏蔽*/
+	char *sql_shield = "SELECT name1, name2, status from friend";
+	MYSQL_RES *re = NULL;
+	MYSQL_ROW ro;
+	if( mysql_real_query(con, sql_shield, strlen(sql_shield)) )
+		my_err("shield", __LINE__);
+	re = mysql_store_result(con);
+
 	while(row = mysql_fetch_row(res))
 	{
 		if(strcmp(name, row[0]) == 0)
@@ -374,6 +545,16 @@ void send_message(char *str, int socket)
 		}
 		if(socket == atoi(row[1]))
 		{
+			strcpy(name2, row[0]);
+			/*判断是否被屏蔽*/
+			while(ro = mysql_fetch_row(re))
+			{
+				if( (strcmp(name, ro[0]) == 0 && strcmp(name2, ro[1]) == 0) || (strcmp(name2, ro[0]) == 0 && strcmp(name, ro[1]) == 0) )
+				{
+					if(atoi(ro[2]) == 0)
+						return;
+				}
+			}
 			strcpy(send_message, row[0]);
 			send_message[strlen(send_message)] = ':';
 			send_message[strlen(send_message)] = '\0';
@@ -384,10 +565,25 @@ void send_message(char *str, int socket)
 			strcat(send_message, message);
 			if(send(sock_fd, send_message, 200, 0) < 0)
 				my_err("send", __LINE__);
-		}
+			/*将消息添加到聊天记录中*/
+			char sql_history[100] = {0};
+			sprintf(sql_history, "INSERT INTO history(name1, name2, message)values('%s','%s','%s')", name2, name, message);
+			if( mysql_real_query(con, sql_history, strlen(sql_history)) )
+				my_err("history", __LINE__);
+			return;
+		}	
 	}
-	
+
+	/*保存离线用户消息*/
+	send_message[strlen(send_message) - 1] = '\0';
+	printf("send_message = %s, name = %s, message = %s\n", send_message, name, message);
+	char sql_message[200] = {0};
+	sprintf(sql_message, "INSERT INTO record(name1, name2, message)values('%s', '%s', '%s')", send_message, name, message);
+	mysql_real_query(con, sql_message, strlen(message));
+	if( mysql_real_query(con, sql_message, strlen(sql_message)) )
+		my_err("insert", __LINE__);
 }
+
 /*添加好友*/
 void add_friend(char *str, int socket)
 {
@@ -397,38 +593,564 @@ void add_friend(char *str, int socket)
 	int i, j= 0, count = 0;
 	for(i = 0; str[i] != '\0'; i++)
 	{
-		if(str[i] == ':')
+		if(str[i] == ':' && count < 1)
+		{
+			i++;
 			count++;
+		}
 		if(count == 1)
 			name[j++] = str[i];
 	}
-	printf("%s\n", name);
-	char *sql_add = "SELECT username, socket FROM person";
+	printf("name = %s\n", name);
+	char *sql_add = "SELECT username, socket FROM online";
 	if( mysql_real_query(con, sql_add, strlen(sql_add)) )
 		my_err("select", __LINE__);
 	res = mysql_store_result(con);
 	count = 0;
-	while(row = mysql_fecht_row(res))
+	while(row = mysql_fetch_row(res))
 	{
 		if(strcmp(name, row[0]) == 0)
 		{
-			sock_fd = row[1];
+			sock_fd = atoi(row[1]);
 			count++;
 		}
-		if(socket == row[1])
+		if(socket == atoi(row[1]))
 		{
 			strcat(message, row[0]);
 			char *temp = " want to add you";
 			strcat(message, temp);
-			printf("add message = %s\n", message);
+			count++;
 		}
 		if(count == 2)
 		{
+			printf("add message = %s\n", message);
 			if(send(sock_fd, message, send_length, 0) < 0)
 				my_err("send", __LINE__);
 		}
 	}
 }
+
+/*同意添加好友*/
+void agree_friend(char *str, int socket)
+{
+	char myname[200] = "#";
+	char name[20] = {0};
+	int i, j = 0, count = 0;
+	int sock_fd;
+	for(i = 0; str[i] != '\0'; i++)
+	{
+		if(str[i] == ':' && count < 1)
+		{
+			count++;
+			i++;
+		}
+		if(count == 1)
+			name[j++] = str[i];
+	}
+	char *sql_add = "SELECT username, socket FROM online";
+	if( mysql_real_query(con, sql_add, strlen(sql_add)) )
+		my_err("select", __LINE__);
+	res = mysql_store_result(con);
+	count = 0;
+	while(row = mysql_fetch_row(res))
+	{
+		if(strcmp(name, row[0]) == 0)
+		{
+			sock_fd = atoi(row[1]);
+			count++;
+		}
+		if(atoi(row[1]) == socket)
+		{
+			strcat(myname, row[0]);
+			count++;
+		}
+		if(count == 2)
+			break;
+	}
+	if(strncmp(str, "~@disagree", 10) == 0)
+	{
+		char *p = " disagree add you";
+		strcat(myname, p);
+		if(send(sock_fd, myname, send_length, 0) < 0)
+			my_err("send", __LINE__);
+		return;
+	}
+	else
+	{
+		char sql[100] = {0};
+		sprintf(sql, "INSERT INTO friend(name1, name2, status) values('%s', '%s', '1')", name, &myname[1]);
+		printf("sql = %s\n", sql);
+		if( mysql_real_query(con, sql, strlen(sql)) )
+			my_err("add", __LINE__);
+		char *p = " agree your application";
+		strcat(myname, p);
+		if(send(sock_fd, myname, send_length, 0) < 0)
+			my_err("send", __LINE__);
+	}
+}
+
+/*删除好友*/
+void rm_friend(char *str, int socket)
+{
+	char name1[20] = {0};                    //用户名1
+	char name2[20] = {0};                    //用户名2
+	int sock_fd = 0;
+	int i, count = 0, j = 0;
+	for(i = 0; str[i] != '\0'; i++)
+	{
+		if(str[i] == ':' && count < 1)
+		{
+			count++;
+			i++;
+		}
+		if(count == 1)
+			name1[j++] = str[i]++; 
+	}
+	char *sql_select = "SELECT username, socket from online";
+	if( mysql_real_query(con, sql_select, strlen(sql_select)) )
+		my_err("select", __LINE__);
+	res = mysql_store_result(con);
+	count = 0;
+	while(row = mysql_fetch_row(res))
+	{
+		if(strcmp(name1, row[0]) == 0)
+		{
+			sock_fd = atoi(row[1]);
+			count++;
+		}
+		if(atoi(row[1]) == socket)
+		{
+			strcpy(name2, row[0]);
+			count++;
+		}
+		if(count == 2)
+			break;
+	}
+	char sql_del[100] = {0};
+	sprintf(sql_del, "DELETE from friend where name1='%s'&&name2='%s' || name1='%s'&&name2='%s'", name1, name2, name2, name1);
+	if(mysql_real_query(con, sql_del, strlen(sql_del)))
+		my_err("delete", __LINE__);
+	char message[200] = "#";
+	char *p = " delete you --";
+	strcat(message, name2);
+	strcat(message, p);
+	if(sock_fd > 0)                    //如果用户在线通知，不在线则不通知
+	{
+		if(send(sock_fd, message, send_length, 0) < 0)
+			my_err("send", __LINE__);
+	}
+}
+
+/*查看好友列表*/
+void watch_friend(char *str, int socket)
+{
+	char name[20] = {0};
+	char message[200] = {0};
+	int i, j = 0, count = 0;
+	int sock_fd = 0;
+	char *sql_select = "SELECT username, socket from online";
+	if( mysql_real_query(con, sql_select, strlen(sql_select)) )
+		my_err("select", __LINE__);
+	res = mysql_store_result(con);
+	while(row = mysql_fetch_row(res))
+	{
+		if(socket == atoi(row[1]))
+		{
+			strcpy(name, row[0]);
+			break;
+		}
+	}
+	char *sql_se = "SELECT name1, name2 from friend";
+	MYSQL *q = NULL;
+	MYSQL_RES *re = NULL; 
+	MYSQL_ROW ro;
+	q = mysql_init(q);
+	mysql_real_connect(q, host, user, key, db, 0, NULL, 0);
+	if( mysql_real_query(q, sql_se, strlen(sql_se)) )
+		my_err("select", __LINE__);
+	re = mysql_store_result(q);
+	int flag = 0;
+	char *temp = "@friend:";
+	char *status1 = " online";
+	char *status2 = " offline";
+	while(ro = mysql_fetch_row(re))
+	{
+		if(strcmp(name, ro[0]) == 0 || strcmp(name, ro[1]) == 0)       //找到自己
+		{
+			printf("ro[0] =  %s  ro[1] = %s\n", ro[0], ro[1]);
+			strcat(message, temp);
+		if( mysql_real_query(con, sql_select, strlen(sql_select)) )
+			my_err("select", __LINE__);
+		res = mysql_store_result(con);
+			while(row = mysql_fetch_row(res))
+			{
+				if( (strcmp(ro[1], row[0]) == 0 && strcmp(name, row[0])) )
+				{
+					flag = 1;
+					strcat(message, row[0]);
+					strcat(message, status1);
+					printf("message = %s\n", message);
+					if(send(socket, message, send_length, 0) < 0)
+						my_err("send", __LINE__);
+				}
+				else if(strcmp(ro[0], row[0]) == 0 && strcmp(name, row[0]))
+				{
+					flag = 1;
+					strcat(message, row[0]);
+					strcat(message, status1);
+					printf("message = %s\n", message);
+					if(send(socket, message, send_length, 0) < 0)
+						my_err("send", __LINE__);
+				}
+			}
+			if(flag == 0)
+			{
+				if(strcmp(name, ro[0]) == 0)
+					strcat(message, ro[1]);
+				else
+					strcat(message, ro[0]);
+				strcat(message, status2);
+				printf("message = %s\n", message);
+				if(send(socket, message, send_length, 0) < 0)
+					my_err("send", __LINE__);
+			}
+			flag = 0;
+			memset(message, '\0', sizeof(message));
+		}
+	}
+}
+
+/*查看聊天记录*/
+void find_history(char *str, int socket)
+{
+	char name1[20] = {0};
+	char name2[20] = {0};
+	int i, j = 0, count = 0;
+	for(i = 0; str[i] != '\0'; i++)
+	{
+		if(str[i] == ':' && count < 1)
+			count++, i++;
+		if(count == 1)
+			name2[j++] = str[i];
+	}
+	printf("history name2 = %s\n", name2);
+	char *sql_select = "SELECT username, socket from online";
+	if( mysql_real_query(con, sql_select, strlen(sql_select)) )
+		my_err("select", __LINE__);
+	res = mysql_store_result(con);
+	while(row = mysql_fetch_row(res))
+	{
+		if(socket == atoi(row[1]))
+		{
+			strcpy(name1, row[0]);
+			break;
+		}
+	}
+	char *sql_se = "SELECT name1, name2, message from history";
+	if( mysql_real_query(con, sql_se, strlen(sql_se)) )
+		my_err("select", __LINE__);
+	res = mysql_store_result(con);
+	while(row = mysql_fetch_row(res))
+	{
+		if(strcmp(name1, row[0]) == 0 && strcmp(name2, row[1]) == 0)
+		{
+			char message[200] = "history:";
+			strcat(message, row[0]);
+			message[strlen(message)] = ':';
+			strcat(message, row[2]);
+			printf("histor message = %s\n", message);
+			if(send(socket, message, send_length, 0) < 0)
+				my_err("send", __LINE__);
+		}
+		else if(strcmp(name1, row[1]) == 0 && strcmp(name2, row[0]) == 0)
+		{
+			char message[200] = "history:";
+			strcat(message, row[1]);
+			message[strlen(message)] = ':';
+			char *p = "                    ";
+			strcat(message, p);
+			strcat(message, row[2]);
+			printf("histor message = %s\n", message);
+			if(send(socket, message, send_length, 0) < 0)
+				my_err("send", __LINE__);
+		}
+	}
+}
+
+/*屏蔽好友消息*/
+void shield_friend(char *str, int socket)
+{
+	char name1[20] = {0};
+	char name2[20] = {0};
+	int i, j = 0, count = 0;
+	for(i = 0; str[i] != '\0'; i++)
+	{
+		if(str[i] == ':' && count < 1)
+			count++, i++;
+		if(count == 1)
+			name2[j++] = str[i];
+	}
+	/*找出发起屏蔽的人*/
+	char *sql_select = "SELECT username, socket from online";
+	if( mysql_real_query(con, sql_select, strlen(sql_select)) )
+		my_err("select", __LINE__);
+	res = mysql_store_result(con);
+	/*找到好友列表中他们的位置*/
+	char *sql_friend = "SELECT name1, name2, status from friend";
+	MYSQL_RES *re = NULL;
+	MYSQL_ROW ro;
+	if( mysql_real_query(con, sql_friend, strlen(sql_friend)) )
+		my_err("friend", __LINE__);
+	re = mysql_store_result(con);
+
+	while(row = mysql_fetch_row(res))
+	{
+		if(socket == atoi(row[1]))
+		{
+			strcpy(name1, row[0]);
+			while(ro = mysql_fetch_row(re))
+			{
+				if( strcmp(name1, ro[0]) == 0 && strcmp(name2, ro[1]) == 0 )
+				{
+					char up[100] = {0};
+					sprintf(up, "UPDATE friend set status='0' where name1='%s'&&name2='%s'", name1, name2);
+					if(mysql_real_query(con, up, strlen(up)) )
+						my_err("update", __LINE__);
+				}
+				else if(strcmp(name1, ro[1]) == 0 && strcmp(name2, ro[0]) == 0)
+				{
+					char up[100] = {0};
+					sprintf(up, "UPDATE friend set status='0' where name1='%s'&&name2='%s'", name2, name1);
+					if(mysql_real_query(con, up, strlen(up)) )
+						my_err("update", __LINE__);
+				}
+			}
+		}
+	}
+}
+
+/*创建群聊*/
+void create_group(char *str, int socket)
+{
+	char name[20] = {0};              //群主名
+	char group_name[20] = {0};        //群名
+	int i, j = 0, count = 0;
+	for(i = 0; str[i] != '\0'; i++)
+	{
+		if(str[i] == ':' && count < 1)
+			count++, i++;
+		if(count == 1)
+			group_name[j++] = str[i];
+	}
+	char *sql_select = "SELECT username, socket from online";
+	if( mysql_real_query(con, sql_select, strlen(sql_select)) )
+		my_err("select", __LINE__);
+	res = mysql_store_result(con);
+	while(row = mysql_fetch_row(res))
+	{
+		if(socket == atoi(row[1]))
+		{
+			strcpy(name, row[0]);              //找到群主名
+			break;
+		}
+	}
+	printf("group_name = %s  boss name = %s\n", group_name, name);
+	char sql_create[100];
+	sprintf(sql_create, "INSERT INTO groups(group_name, member, status)values('%s','%s','2')", group_name,name);
+	printf("sql_create = %s\n", sql_create);
+	if( mysql_real_query(con, sql_create, strlen(sql_create)) )
+		my_err("create", __LINE__);
+	char sql_insert[200] = {0};
+	/*创建成功后给客户端发送成功消息*/
+	char flag[200] = "success";
+	if(send(socket, flag, send_length, 0) < 0)
+		my_err("send", __LINE__);
+}
+
+/*群的解散*/
+void rm_group(char *str, int socket)
+{
+	char group_name[20] ={0};
+	char name[20] = {0};
+	int i, j = 0, count = 0;
+	for(i = 0; str[i] != '\0'; i++)
+	{
+		if(str[i] == ':' && count < 1)
+			count++, i++;
+		if(count == 1)
+			group_name[j++] = str[i];
+	}
+	printf("rm group = %s\n", group_name);
+	char *sql_select = "SELECT username, socket from online";
+	if( mysql_real_query(con, sql_select, strlen(sql_select)) )	
+		my_err("select", __LINE__);
+	res = mysql_store_result(con);
+	while(row = mysql_fetch_row(res))
+	{
+		if(socket == atoi(row[1]))
+		{
+			strcpy(name, row[0]);
+			break;
+		}
+	}
+	/*查找该用户是否为群主*/
+	int flag = 0; //标记群是否被删除
+	char *sql_se ="SELECT group_name, member, status from groups";
+	if( mysql_real_query(con, sql_se, strlen(sql_se)) )
+		my_err("select", __LINE__);
+	res = mysql_store_result(con);
+	while(row = mysql_fetch_row(res))
+	{
+		/*满足删除条件*/
+		if(strcmp(row[0], group_name) == 0 && strcmp(name, row[1]) == 0 && atoi(row[2]) == 2)
+		{
+			char sql_de[100] = {0};
+			flag = 1;
+			sprintf(sql_de, "delete from groups where group_name='%s'", group_name);
+			if( mysql_real_query(con, sql_de, strlen(sql_de)) )
+				my_err("delete", __LINE__);
+			break;
+		}
+	}
+	if(flag = 0)
+	{
+		char message[200] = "#小伙子，大哥的群你也敢删?";
+		if(send(socket, message, send_length, 0) < 0)
+			my_err("send", __LINE__);
+	}
+	else
+	{
+		char message[200] = "#删群成功\n";
+		if(send(socket, message, send_length, 0) < 0)
+			my_err("send", __LINE__);
+	}
+}
+
+/*申请加群*/
+void add_group(char *str, int socket)
+{
+	char name1[20] = {0};	  //群主的名字
+	char name2[20] = {0};     //申请加群的名字
+	int sock_fd = 0;
+	char group_name[20] = {0};
+	int i, j = 0, count = 0;
+	/*解析出群名*/
+	for(i = 0; str[i] != '\0'; i++)
+	{
+		if(str[i] ==':' &&count < 1)
+			count++, i++;
+		if(count == 1)
+			group_name[j++] = str[i];
+	}
+	/*找出申请加群的名字*/
+	char *sql_select = "SELECT username, socket from online";
+	if( mysql_real_query(con, sql_select, strlen(sql_select)) )
+		my_err("select", __LINE__);
+	res = mysql_store_result(con);
+	while(mysql_fetch_row(res))
+	{
+		if(socket == atoi(row[1]))
+		{
+			strcpy(name2, row[0]);
+			printf("群成员\n");
+			break;
+		}
+	}
+	/*找出该群的群主*/
+	char *sql_se = "SELECT group_name, member, status from groups";
+	if( mysql_real_query(con, sql_se, strlen(sql_se)) )
+		my_err("select", __LINE__);
+	res = mysql_store_result(con);
+	while(row = mysql_fetch_row(res))
+	{
+		if(strcmp(group_name, row[0]) == 0 && atoi(row[2]) == 2)
+		{
+			strcpy(name1, row[1]);
+			printf("群主：%s\n", name1);
+			break;
+		}
+	}
+	if( mysql_real_query(con, sql_select, strlen(sql_select)) )
+		my_err("select", __LINE__);
+	res = mysql_store_result(con);
+	while(row = mysql_fetch_row(res))
+	{
+		if(strcmp(name1, row[0]) == 0)
+		{
+			sock_fd = atoi(row[1]);
+			char message[200] = "add_group:";
+			char *p = " want to join ~";
+			strcat(message, name2);
+			strcat(message, p);
+			strcat(message, group_name);
+			printf("message = %s\n", message);
+			if(send(sock_fd, message, send_length, 0) < 0)
+				my_err("send", __LINE__);
+			break;
+		}
+	}
+}
+
+/*是否同意入群*/
+void aod_group(char *str, int socket)
+{
+	char name[20] = {0};
+	char group[20] = {0};
+	int sock_fd = 0;
+	int i, j = 0, count = 0;
+	for(i = 0; str[i] != '\0'; i++)
+	{
+		if(str[i] == ':' && count < 2)
+			i++, count++, j = 0;
+		if(count == 1)
+			group[j++] = str[i];
+		if(count == 2)
+			name[j++] = str[i];
+	}
+	printf("add group = %s, add name = %s\n", group, name);
+	char *sql_select = "SELECT username, socket from online";
+	if( mysql_real_query(con, sql_select, strlen(sql_select)) )
+		my_err("select", __LINE__);
+	res = mysql_store_result(con);
+	while(row = mysql_fetch_row(res))
+	{
+		if(strcmp(name, row[0]) == 0)
+		{
+			sock_fd = atoi(row[1]);
+			break;
+		}
+	}
+	if(strncmp(str, "@@a", 3) == 0)
+	{
+		char sql_add[100] = {0};
+		sprintf(sql_add, "INSERT INTO groups(group_name, member, status)values('%s','%s','0')", group, name);
+		printf("sql_add = %s\n", sql_add);
+		if( mysql_real_query(con, sql_add, strlen(sql_add)) )
+			my_err("sql_add", __LINE__);
+		if(sock_fd != 0)
+		{
+			char message[200];
+			sprintf(message, "# %s agree you to join %s", name, group);
+			if(send(sock_fd, message, send_length, 0) < 0)
+				my_err("send", __LINE__);
+		}
+		else
+			return;
+	}
+	else
+	{
+		if(sock_fd != 0)
+		{
+			char message[200] = "#你被残忍的拒绝入群了";
+			if(send(sock_fd, message, send_length, 0) < 0)
+				my_err("send", __LINE__);
+		}
+		else
+			return;
+	}
+	
+}
+
 
 int main(void)
 {
