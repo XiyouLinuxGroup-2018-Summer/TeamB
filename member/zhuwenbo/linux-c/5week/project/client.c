@@ -265,6 +265,67 @@ void recv_record(char *str)
 	CLOSE
 }
 
+/*查看历史记录*/
+void recv_history(char *str)
+{
+	int i = 0, j = 0, count = 0;
+	char message[200] = {0};
+	for(; str[i] != '\0'; i++)
+	{
+		if(str[i] == ':')
+			count++, i++;
+		if(count == 2)
+			message[j++] = str[i];
+	}
+	printf("%s\n", message);
+}
+
+void create_group(int socket)
+{
+	int len = 0, count = 0, recv_length = 200;
+	printf("\t   创建群聊 \n");
+	printf("请输入想要创建的群名字,长度小于20: ");
+	char name[20] = {0};
+	char recv_buf[200] = {0};                         //接收服务器返回的消息
+	getchar();
+	scanf("%[^\n]", name);
+	char message[200] = "!create:";
+	strcat(message, name);
+	printf("create message = %s\n", message);
+	if(send(socket, message, send_length, 0) < 0)
+		my_err("send", __LINE__);
+	while(len = recv(socket, recv_buf, recv_length, 0) < 0)
+	{
+		if(count == 200)
+			break;
+		count += len;
+		recv_length -= len;
+	}
+	if(strncmp(recv_buf, "success", 7) == 0)
+		printf("恭喜你创建成功\n");
+	else
+		printf("创建失败\n");
+}
+
+/*加群*/
+void add_group(char *str)
+{
+	char message2[100] = {0};
+	char group[20] = {0};
+	int i, j = 0, count = 0;
+	for(i = 0; str[i] != '\0'; i++)
+	{
+		if(str[i] == ':' && count < 1)
+			count++, i++;
+		if(str[i] == '~' && count > 0)
+			count++,i++;
+		if(count == 1)
+			message2[j++] = str[i];
+	}
+	printf("\t%s\n", message2);
+	printf("是否同意该用户入群，同意请输入@@ag:加群名:加用户名，不同意请输入@@dis:加用户名\n");
+}
+
 void *send_message(void *arg)
 {
 	int socket = *(int *)arg;
@@ -276,7 +337,26 @@ void *send_message(void *arg)
 		getchar();
 		scanf("%[^\n]", message1);
 		strcat(message, message1);
-		if(send(socket, message, send_length, 0) < 0)
+		/*查看好友列表*/
+		if(strcmp(message, "~") == 0)
+			printf("-----------------------好友列表------------------------\n");
+		/*查看消息记录*/
+		else if(strncmp(message, "~history:", 9) == 0)
+		{
+			GREEN
+			printf("----------消息记录---------\n");
+			CLOSE
+		}
+		/*创建群聊*/
+		else if(strcmp(message, "~create") == 0)
+		{
+			create_group(socket);
+			memset(message, 0, sizeof(message));
+			memset(message1, 0, sizeof(message1));
+			continue;
+		}
+		/*聊天*/
+		 if(send(socket, message, send_length, 0) < 0)
 			my_err("send", __LINE__);
 		memset(message, 0, sizeof(message));
 		memset(message1, 0, sizeof(message1));
@@ -288,11 +368,15 @@ void *recv_message(void *arg)
 {
 	int socket = *(int *)arg;
 	char readbuf[200] = {0};
-	int len;
+	int i, j, k;
+	char name[20] = {0};
+	char lastname[20] = {0};
+	int len, count;
+	int recv_length;
 	while(1)
 	{	
-		int len, count = 0;
-		int recv_length = 200;
+		len =  count = 0;
+     	recv_length = 200;
 		while( (len = recv(socket, readbuf, recv_length, 0)) )
 		{
 			count += len;
@@ -305,10 +389,12 @@ void *recv_message(void *arg)
 		if(len == -1)
 			my_err("recv", __LINE__);
 		readbuf[strlen(readbuf)] = '\0';
+		/*添加好友*/
 		if(strncmp(readbuf, "add", 3) == 0)
 		{
 			add_friend(readbuf, socket);
 		}
+		/*接收通知消息*/
 		else if(strncmp(readbuf, "#", 1) == 0)          //通知
 		{
 			printf("----------------------------------------------------\n");
@@ -317,10 +403,16 @@ void *recv_message(void *arg)
 			CLOSE
 			printf("----------------------------------------------------\n");
 		}
+		/*查看好友列表*/
 		else if(strncmp(readbuf, "@friend:", 8) == 0)
 			watch_friend(readbuf);
+		/*接收离线消息*/
 		else if(strncmp(readbuf, "off:", 4) == 0)
 			recv_record(readbuf);
+		/*查看历史记录*/
+		else if(strncmp(readbuf, "history:", 8) == 0)
+			recv_history(readbuf);
+		/*添加入群*/
 		else
 			printf("\t\t\t%s\n", readbuf);
 		memset(readbuf, 0, sizeof(readbuf));
@@ -369,6 +461,8 @@ int main(int argc, char *argv[])
 			while(!user_enter(cli_fd))	
 				printf("登录失败请重新登录\n");
 			break;
+		default:
+			printf("小伙子请输入正确的命令\n");
 	}
 	printf("添加好友在屏幕上输入     ");
 	RED
@@ -385,6 +479,26 @@ int main(int argc, char *argv[])
 	printf("查看好友列表             ");
 	RED
 	printf("按回车即可\n");
+	CLOSE
+	printf("查看历史记录输入         ");
+	RED
+	printf("history:加想要查看的用户名\n");
+	CLOSE
+	printf("屏蔽好友输入             ");
+	RED
+	printf("shield:加好友名字\n");
+	CLOSE
+	printf("创建群聊输入             ");
+	RED
+	printf("create即可\n");
+	CLOSE
+	printf("删除群聊输入             ");
+	RED
+	printf("rm_group:加群名即可\n");
+	CLOSE
+	printf("申请入群请输入           ");
+	RED
+	printf("add_g:加群名\n");
 	CLOSE
 	pthread_t tid1, tid2;
 	pthread_create(&tid1, NULL, send_message, (void *)&cli_fd);
