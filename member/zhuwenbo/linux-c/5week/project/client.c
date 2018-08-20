@@ -272,14 +272,15 @@ void recv_history(char *str)
 	char message[200] = {0};
 	for(; str[i] != '\0'; i++)
 	{
-		if(str[i] == ':')
+		if(str[i] == ':' && count < 1)
 			count++, i++;
-		if(count == 2)
+		if(count == 1)
 			message[j++] = str[i];
 	}
 	printf("%s\n", message);
 }
 
+/*创建群聊*/
 void create_group(int socket)
 {
 	int len = 0, count = 0, recv_length = 200;
@@ -317,13 +318,61 @@ void add_group(char *str)
 	{
 		if(str[i] == ':' && count < 1)
 			count++, i++;
-		if(str[i] == '~' && count > 0)
-			count++,i++;
 		if(count == 1)
 			message2[j++] = str[i];
 	}
 	printf("\t%s\n", message2);
 	printf("是否同意该用户入群，同意请输入@@ag:加群名:加用户名，不同意请输入@@dis:加用户名\n");
+}
+
+void g_his(char *str)
+{
+	char message[200] = {0};
+	strcpy(message, &str[6]);
+	printf("%s\n", message);
+}
+
+/*查看群成员*/
+void watch_member(char *str)
+{
+	int i, j = 0, count = 0;
+	char name[20] = {0};
+	char status[50] = {0};
+	char message[30] = {0};
+	for(i = 7; str[i] != '\0'; i++)
+	{
+		if(str[i] == ':' && count < 2)
+			count++, i++;
+		if(count == 1)
+			name[j++] = str[i];
+		if(count == 2)
+		{
+			strcpy(status, &str[i]);
+			break;
+		}
+	}
+	int len;
+	if(strcmp(status, "online") == 0)
+	{
+		printf("%s", name);
+		len = strlen(name);
+		for(j = 0; j < 30 - len; j++)
+			message[j] = ' ';
+		GREEN
+		
+		printf("%s%s\n",message,status);
+		CLOSE
+	}
+	else
+	{
+		printf("%s", name);
+		len = strlen(name);
+		for(j = 0; j < 30 - len; j++)
+			message[j] = ' ';
+		RED
+		printf("%s%s\n",message, status);
+		CLOSE
+	}
 }
 
 void *send_message(void *arg)
@@ -340,11 +389,18 @@ void *send_message(void *arg)
 		/*查看好友列表*/
 		if(strcmp(message, "~") == 0)
 			printf("-----------------------好友列表------------------------\n");
-		/*查看消息记录*/
+		/*查看用户消息记录*/
 		else if(strncmp(message, "~history:", 9) == 0)
 		{
 			GREEN
-			printf("----------消息记录---------\n");
+			printf("----------与用户%s消息记录---------\n", &message[9]);
+			CLOSE
+		}
+		/*查看群消息记录*/
+		else if(strncmp(message, "~g_his:", 7) == 0)
+		{
+			GREEN
+			printf("--------群%s消息记录---------\n", &message[7]);
 			CLOSE
 		}
 		/*创建群聊*/
@@ -355,12 +411,25 @@ void *send_message(void *arg)
 			memset(message1, 0, sizeof(message1));
 			continue;
 		}
+		/*查看加入的群聊*/
+		else if(strcmp(message, "~w") == 0)
+		{
+			BLUE
+			printf("----------加入的群聊-----------\n");
+			CLOSE
+		}
+		/*查看群成员*/
+		else if(strncmp(message, "~w:", 3) == 0)
+		{
+			BLUE
+			printf("----------群聊%s的成员为----------\n", &message[3]);
+			CLOSE
+		}
 		/*聊天*/
 		 if(send(socket, message, send_length, 0) < 0)
 			my_err("send", __LINE__);
 		memset(message, 0, sizeof(message));
 		memset(message1, 0, sizeof(message1));
-
 	}
 }
 
@@ -389,11 +458,12 @@ void *recv_message(void *arg)
 		if(len == -1)
 			my_err("recv", __LINE__);
 		readbuf[strlen(readbuf)] = '\0';
+		/*添加群聊*/
+		if(strncmp(readbuf, "add_group", 9) == 0)
+			add_group(readbuf);
 		/*添加好友*/
-		if(strncmp(readbuf, "add", 3) == 0)
-		{
+		else if(strncmp(readbuf, "add", 3) == 0)
 			add_friend(readbuf, socket);
-		}
 		/*接收通知消息*/
 		else if(strncmp(readbuf, "#", 1) == 0)          //通知
 		{
@@ -412,8 +482,13 @@ void *recv_message(void *arg)
 		/*查看历史记录*/
 		else if(strncmp(readbuf, "history:", 8) == 0)
 			recv_history(readbuf);
-		/*添加入群*/
-		else
+		/*查看群历史记录*/
+		else if(strncmp(readbuf, "g_his:", 6) == 0)
+			g_his(readbuf);
+		/*查看群成员*/
+		else if(strncmp(readbuf, "~member:", 8) == 0)
+			watch_member(readbuf);
+		else 
 			printf("\t\t\t%s\n", readbuf);
 		memset(readbuf, 0, sizeof(readbuf));
 	}
@@ -499,6 +574,26 @@ int main(int argc, char *argv[])
 	printf("申请入群请输入           ");
 	RED
 	printf("add_g:加群名\n");
+	CLOSE
+	printf("向群发送消息输入         ");
+	RED
+	printf("g:加群名:消息即可\n");
+	CLOSE
+	printf("查看群消息历史记录输入   ");
+	RED
+	printf("g_his:加群名即可\n");
+	CLOSE
+	printf("查看所加入的群聊输入     ");
+	RED
+	printf("w即可\n");
+	CLOSE
+	printf("查看群成员输入           ");
+	RED
+	printf("w:加群名即可\n");
+	CLOSE
+	printf("设置管理员输入           ");
+	RED
+	printf("set:加群名:加用户名\n");
 	CLOSE
 	pthread_t tid1, tid2;
 	pthread_create(&tid1, NULL, send_message, (void *)&cli_fd);

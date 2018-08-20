@@ -31,9 +31,11 @@ struct record{
 	time_t time;							//发送时间
 	int type;								//消息性质1,私聊2.群聊3.系统通知
 	char data[50];							//消息内容
+	int flag;								//是否被处理
 };
 
-//431 添加好友通知;	
+//消息类型：31添加好友；32入群申请 ;33解散群
+//反馈消息类型： 431 添加好友; 432加入群申请;433解散群通知;	
 //反馈数据类型结构体
 typedef struct dat{
 	int type;								//反馈消息类型
@@ -53,14 +55,32 @@ void Send_message(request buf,b_data *back_data);
 //处理添加好友请求
 void Add_Friend(request buf,b_data * back_data);
 
+//处理删除好友请求
+void Delete_Friend(request buf,b_data *back_data);
+
+//处理退出群聊请求
+void Quit_Group(request buf,b_data *back_data);
+
+//处理解散群请求
+void Delete_Group(request buf,b_data *back_data);
+
 //处理查看私人聊天记录请求
 void View_record(request buf,b_data *back_data);
 
 //处理创建群聊请求
-void Create_Group(request buf,b_data *back_dat);
+void Create_Group(request buf,b_data *back_data);
+
+//处理查看群成员请求
+void Show_member(request buf,b_data *back_data);
 
 //处理查看群聊天记录请求
 void View_grecord(request buf,b_data *back_data);
+
+//处理添加群请求
+void Add_Group(request buf,b_data *back_data);
+
+//处理显示所有群请求
+void display_all(request buf,b_data *back_data);
 
 //处理显示所有好友请求
 void display_all(request buf,b_data *back_data);

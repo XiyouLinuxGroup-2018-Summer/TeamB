@@ -127,6 +127,140 @@ void Send_message(request buf,b_data *back_data)
 
 }
 
+//处理解散群请求
+void Delete_Group(request buf,b_data *back_data)
+{
+	MYSQL_RES	*res = NULL;
+	MYSQL_ROW	rows;
+	int rc,i,fields;
+	int row;
+	char query_str[200];					//存放mysql语句
+	int recv_fd;
+	//判断申请用户是否为群主
+	sprintf(query_str,"select * from relationinfo where name1='%s' and name2='%s' and power=%d",buf.send_user,buf.recv_user,1);
+	rc = mysql_real_query(&mysql,query_str,strlen(query_str));
+	if(rc != 0) {
+		back_data->cnt = 0;					//说明不是群主
+		return;	
+	}
+	
+	res = mysql_store_result(&mysql);
+	mysql_free_result(res);
+	
+	
+	//向所有群成员发送解散群通知
+	memset(query_str,0,strlen(query_str));
+	sprintf(query_str,"select * from relationinfo where name2='%s'",buf.recv_user);
+	rc = mysql_real_query(&mysql,query_str,strlen(query_str));
+	if(rc != 0) 
+		printf("%s\n",mysql_error(&mysql));
+	
+	res = mysql_store_result(&mysql);
+	while(rows = mysql_fetch_row(res)) {
+		MYSQL_RES *res2 = NULL;
+		MYSQL_ROW rows2;
+		int fd;
+		//通过用户信息表找到他们的套接字
+		memset(query_str,0,strlen(query_str));
+		sprintf(query_str,"select * from userinfo where name='%s'",rows[0]);
+		mysql_real_query(&mysql,query_str,strlen(query_str));
+
+		res2 = mysql_store_result(&mysql);
+		rows2 = mysql_fetch_row(res2);
+		fd = rows2[2][0] - '0';
+
+		b_data auf;
+		memset(&auf,0,sizeof(b_data));
+		auf.type = 433;
+		strcpy(auf.ar[0].send_user,buf.send_user);
+		strcpy(auf.ar[0].recv_user,buf.recv_user);
+		auf.ar[0].type = 33;
+		printf("fd = %d\n",fd);
+		send(fd,&auf,sizeof(b_data),0);	
+	}
+	//删除用户关系表中所有该群信息
+	memset(query_str,0,strlen(query_str));
+	sprintf(query_str,"delete from relationinfo where name2='%s'",buf.recv_user);
+	rc = mysql_real_query(&mysql,query_str,strlen(query_str));
+	if(rc != 0)
+		printf("%s\n",mysql_error(&mysql));
+	
+	//发送成功，反馈值置于1
+	back_data->cnt = 1;
+}		
+
+//处理退出群聊请求
+void Quit_Group(request buf,b_data *back_data)
+{
+	MYSQL_RES	*res = NULL;
+	MYSQL_ROW	rows;
+	int rc,i,fields;
+	int row;
+	char query_str[200];					//存放mysql语句
+	int recv_fd;
+	//判断是否在该群聊中
+	sprintf(query_str,"select * from relationinfo where name1='%s' and name2='%s'",buf.send_user,buf.recv_user);
+	rc = mysql_real_query(&mysql,query_str,strlen(query_str));
+	if(rc != 0) {
+		back_data->cnt = 0;					//说明没在该群聊中
+		puts("1");
+		return;	
+	}
+	
+	res = mysql_store_result(&mysql);
+
+
+	//发送退出消息给所有管理员和群主
+	memset(query_str,0,strlen(query_str));
+	sprintf(query_str,"select * from relationinfo where name2='%s'",buf.recv_user);
+	rc = mysql_real_query(&mysql,query_str,strlen(query_str));
+
+	res = mysql_store_result(&mysql);
+	row = mysql_num_rows(res);
+	int count = mysql_num_rows(res);
+	printf("count = %d\n",count);
+
+	while(rows = mysql_fetch_row(res)) {
+		printf("%s -====================\n",rows[0]);
+		if(!strcmp(rows[2],"1") || !strcmp(rows[2],"2")) {		//找到群主和管理员
+			MYSQL_RES *res2 = NULL;
+			MYSQL_ROW rows2;
+			int fd;
+			//通过用户信息表找到他们的套接字
+			memset(query_str,0,strlen(query_str));
+			sprintf(query_str,"select * from userinfo where name='%s'",rows[0]);
+			mysql_real_query(&mysql,query_str,strlen(query_str));
+
+			res2 = mysql_store_result(&mysql);
+			rows2 = mysql_fetch_row(res2);
+			fd = rows2[2][0] - '0';
+
+			b_data auf;
+			memset(&auf,0,sizeof(b_data));
+			auf.type = 434;
+			strcpy(auf.ar[0].send_user,buf.send_user);
+			strcpy(auf.ar[0].recv_user,buf.recv_user);
+			strcpy(auf.ar[0].data,buf.data);
+			auf.ar[0].type = 34;
+			auf.flag == 0;
+			send(fd,&auf,sizeof(b_data),0);	
+
+		}
+		//发送成功，反馈值置1
+		back_data->cnt = 1;
+	}
+	
+	//从关系信息表中删除该用户与群聊的信息
+	memset(query_str,0,strlen(query_str));
+	sprintf(query_str,"delete from relationinfo where name1='%s' and name2='%s'",buf.send_user,buf.recv_user);
+	rc = mysql_real_query(&mysql,query_str,strlen(query_str));
+	if(rc != 0) 
+		printf("%s\n",mysql_error(&mysql));
+
+}
+
+
+
 //处理删除好友请求
 void Delete_Friend(request buf,b_data *back_data)
 {
@@ -137,14 +271,13 @@ void Delete_Friend(request buf,b_data *back_data)
 	char query_str[200];					//存放mysql语句
 	int recv_fd;
 	//判断双方是否为好友
-	sprintf(query_str,"select * from relationinfo where name1='%s' and name2='%s'",buf.send_user,buf.recv_user);
+	sprintf(query_str,"select * from relationinfo where (name1='%s' and name2='%s') or (name1='%s' and name2='%s')",buf.send_user,buf.recv_user,buf.recv_user,buf.send_user);
 	rc = mysql_real_query(&mysql,query_str,strlen(query_str));
 	if(rc != 0) {
 		back_data->cnt = 0;					//说明双方不是好友了
 		puts("1");
 		return;	
 	}
-	printf("%s %s\n",buf.send_user,buf.recv_user);
 	
 	res = mysql_store_result(&mysql);
 	mysql_free_result(res);
@@ -152,7 +285,7 @@ void Delete_Friend(request buf,b_data *back_data)
 	
 	//从关系信息表中删除双方好友信息
 	memset(query_str,0,strlen(query_str));
-	sprintf(query_str,"delete from relationinfo where name1='%s' and name2='%s'",buf.send_user,buf.recv_user);
+	sprintf(query_str,"delete from relationinfo where (name1='%s' and name2='%s') or (name1='%s' and name2='%s')",buf.send_user,buf.recv_user,buf.recv_user,buf.send_user);
 	rc = mysql_real_query(&mysql,query_str,strlen(query_str));
 	if(rc != 0) 
 		printf("%s\n",mysql_error(&mysql));
@@ -167,6 +300,7 @@ void Delete_Friend(request buf,b_data *back_data)
 	back_data->cnt = 1;
 
 }
+
 
 //处理创建群聊请求
 void Create_Group(request buf,b_data *back_data)
@@ -202,10 +336,103 @@ void Create_Group(request buf,b_data *back_data)
 
 }
 
+//处理添加群请求
+void Add_Group(request buf,b_data *back_data)
+{
+	MYSQL_RES	*res = NULL;
+	MYSQL_ROW	rows;
+	int rc,i,fields;
+	int row;
+	char query_str[200];					//存放mysql语句
+	int recv_fd;
+	//判断是否在群聊里面
+	memset(query_str,0,strlen(query_str));
+	sprintf(query_str,"select * from relationinfo where name1='%s' and name2='%s'",buf.send_user,buf.recv_user);
+	rc = mysql_real_query(&mysql,query_str,strlen(query_str));
+	res = mysql_store_result(&mysql);
+	row = mysql_num_rows(res);
+	if(row != 0) {
+		back_data->cnt = 0;					//说明已经在群里了
+		return;	
+	}
+	if(buf.flag == 0) {							//第一次提交申请
+		//找出所有管理员和群主
+		memset(query_str,0,strlen(query_str));
+		sprintf(query_str,"select * from relationinfo where name2='%s'",buf.recv_user);
+		rc = mysql_real_query(&mysql,query_str,strlen(query_str));
+
+		res = mysql_store_result(&mysql);
+		row = mysql_num_rows(res);
+		int count = mysql_num_rows(res);
+		printf("count = %d\n",count);
+		
+		while(rows = mysql_fetch_row(res)) {
+
+			if(!strcmp(rows[2],"1") || !strcmp(rows[2],"2")) {		//找到群主和管理员
+				MYSQL_RES *res2 = NULL;
+				MYSQL_ROW rows2;
+				int fd;
+				//通过用户信息表找到他们的套接字
+				memset(query_str,0,strlen(query_str));
+				sprintf(query_str,"select * from userinfo where name='%s'",rows[0]);
+				mysql_real_query(&mysql,query_str,strlen(query_str));
+
+				res2 = mysql_store_result(&mysql);
+				rows2 = mysql_fetch_row(res2);
+				fd = rows2[2][0] - '0';
+
+				b_data auf;
+				memset(&auf,0,sizeof(b_data));
+				auf.type = 432;
+				strcpy(auf.ar[0].send_user,buf.send_user);
+				strcpy(auf.ar[0].recv_user,buf.recv_user);
+				strcpy(auf.ar[0].data,buf.data);
+				auf.ar[0].type = 32;
+				auf.flag == 0;
+				send(fd,&auf,sizeof(b_data),0);	
+
+			}
+			//发送成功，反馈值置1
+			back_data->cnt = 1;
+		}
+	}
+
+
+	//若为第二次处理申请
+	if(buf.flag == 1) {
+		//在关系信息表中加入
+		memset(query_str,0,strlen(query_str));
+		sprintf(query_str,"insert into relationinfo(name1,name2,power) values('%s','%s',%d)",buf.send_user,buf.recv_user,3);
+		mysql_real_query(&mysql,query_str,strlen(query_str));
+
+		res = mysql_store_result(&mysql);
+		
+		
+		//在用户信息表中找到name1用户，得到他的套接字
+		memset(query_str,0,strlen(query_str));
+		sprintf(query_str,"select * from userinfo where name='%s'",buf.send_user);
+		mysql_real_query(&mysql,query_str,strlen(query_str));
+		res = mysql_store_result(&mysql);
+		rows = mysql_fetch_row(res);
+		
+
+		b_data auf;
+		memset(&auf,0,sizeof(auf));
+		auf.type = 432;
+		auf.flag = 1;
+		strcpy(auf.ar[0].send_user,buf.send_user);
+		strcpy(auf.ar[0].recv_user,buf.recv_user);
+		
+		//反馈给申请加入的用户
+		send(rows[2][0] - '0',&auf,sizeof(b_data),0);
+		return;
+	}
+}
+
+
 //处理添加好友请求
 void Add_Friend(request buf,b_data * back_data)
-{
-	
+{		
 	MYSQL_RES	*res = NULL;
 	MYSQL_ROW	rows;
 	int rc,i,fields;
@@ -214,13 +441,14 @@ void Add_Friend(request buf,b_data * back_data)
 	int recv_fd;
 	//判断双方是否为好友
 	memset(query_str,0,strlen(query_str));
-	sprintf(query_str,"select * from relationinfo where name1='%s' and name2='%s'",buf.send_user,buf.recv_user);
+	sprintf(query_str,"select * from relationinfo where (name1='%s' and name2='%s') or (name1='%s' and name2='%s')",buf.send_user,buf.recv_user,buf.recv_user,buf.send_user);
 	rc = mysql_real_query(&mysql,query_str,strlen(query_str));
-	if(rc == 0) {
+	res = mysql_store_result(&mysql);
+	row = mysql_num_rows(res);
+	if(row != 0) {
 		back_data->cnt = 0;					//说明双方已经是好友了
 		return;	
 	}
-
 	//判断对方是否离线
 	mysql_store_result(&mysql);
 	memset(query_str,0,sizeof(strlen(query_str)));
@@ -241,18 +469,70 @@ void Add_Friend(request buf,b_data * back_data)
 		return;
 	}
 	recv_fd = rows[2][0] - '0';
+	//若为第二次处理申请
+	if(buf.flag == 1) {
+		puts("ok mubiao");
+		//在关系信息表中加入
+		memset(query_str,0,strlen(query_str));
+		sprintf(query_str,"insert into relationinfo(name1,name2,power) values('%s','%s',%d)",buf.send_user,buf.recv_user,4);
+		mysql_real_query(&mysql,query_str,strlen(query_str));
+
+		b_data auf;
+		memset(&auf,0,sizeof(auf));
+		auf.type = 431;
+		auf.flag = 1;
+		strcpy(auf.ar[0].send_user,buf.send_user);
+		strcpy(auf.ar[0].send_user,buf.recv_user);
+		
+		//反馈给请求添加好友的用户
+		send(recv_fd,&auf,sizeof(b_data),0);
+		return;
+	}
+	
 	//接收方存在且在线
 	back_data->cnt = 1;
+
 	b_data auf;
 	memset(&auf,0,sizeof(b_data));
 	auf.type = 431;
 	strcpy(auf.ar[0].send_user,buf.send_user);
 	strcpy(auf.ar[0].recv_user,buf.recv_user);
-	auf.ar[0].type = 3;
+	auf.ar[0].type = 31;
 	strcpy(auf.ar[0].data,buf.data);
 	send(recv_fd,&auf,sizeof(b_data),0);//发送请求
 
 }
+//处理查看群成员请求
+//参数;群名称
+//反馈数据：返回该群聊的所有成员
+void Show_member(request buf,b_data *back_data)
+{
+	MYSQL_RES	*res = NULL;
+	MYSQL_ROW	rows;
+	int row;
+	char query_str[200];					//存放mysql语句的字符串数组
+	int rc,i,fields;
+	int count = 0;
+	//在表中查找所有该群聊的成员
+
+	memset(query_str,0,strlen(query_str));
+	sprintf(query_str,"select * from relationinfo where name2='%s'",buf.recv_user);
+	rc = mysql_real_query(&mysql,query_str,strlen(query_str));
+	if(rc != 0) {
+		printf("error:%s",mysql_error(&mysql));
+	}
+
+	res = mysql_store_result(&mysql);
+	row = mysql_num_rows(res);
+	fields = mysql_num_fields(res);
+	while(rows = mysql_fetch_row(res)) {
+		puts(rows[0]);
+		strcpy(back_data->str[count++],rows[0]);
+	}
+	back_data->cnt = 1;
+}
+
+
 //处理查看群聊天记录请求
 //参数：用户名，群名称
 //反馈数据：返回该群聊的聊天记录，存入back_data中
@@ -340,6 +620,41 @@ void View_record(request buf,b_data *back_data)
 	sprintf
 */
 
+//处理显示所有群请求
+//参数：用户名
+//反馈数据:返回所有该用户的群信息，存入back_data中
+void display_allg(request buf,b_data *back_data)
+{
+	MYSQL_RES	*res = NULL;
+	MYSQL_ROW	rows;
+	int row;
+	char query_str[200];					//存放mysql语句的字符串数组
+	int rc,i,fields;
+	int count = 0;
+	//在表中查找所有该用户所加入的群
+	
+
+	char *name = buf.send_user;
+	int fd = buf.fd;
+	
+	memset(query_str,0,strlen(query_str));
+	sprintf(query_str,"select * from relationinfo where name1='%s' and power !=4",buf.send_user);
+	rc = mysql_real_query(&mysql,query_str,strlen(query_str));
+	if(rc != 0) {
+		printf("mysql_read_query():%s\n",mysql_error(&mysql));
+	}
+	
+	res = mysql_store_result(&mysql);
+	if(res == NULL) {
+		printf("error:%s",mysql_error(&mysql));
+	}
+	row = mysql_num_rows(res);
+	fields = mysql_num_fields(res);
+	while((rows = mysql_fetch_row(res))) {
+				strcpy(back_data->str[count++],rows[1]);
+	}
+	
+}
 
 
 //处理显示所有好友请求
@@ -361,7 +676,7 @@ void display_all(request buf,b_data *back_data)
 	int fd = buf.fd;
 	
 	memset(query_str,0,strlen(query_str));
-	sprintf(query_str,"select *%c from relationinfo",' ');
+	sprintf(query_str,"select * from relationinfo where name1='%s' or name2='%s'",buf.send_user,buf.send_user);
 	rc = mysql_real_query(&mysql,query_str,strlen(query_str));
 	if(rc != 0) {
 		printf("mysql_read_query():%s\n",mysql_error(&mysql));
@@ -374,8 +689,10 @@ void display_all(request buf,b_data *back_data)
 	row = mysql_num_rows(res);
 	fields = mysql_num_fields(res);
 	while((rows = mysql_fetch_row(res))) {
-			if(strcmp(rows[0],buf.send_user) == 0)
+			if(strcmp(rows[0],name) == 0 && strcmp(rows[2],"4") == 0)
 				strcpy(back_data->str[count++],rows[1]);
+			if(strcmp(rows[1],name) == 0 && strcmp(rows[2],"4") == 0)
+				strcpy(back_data->str[count++],rows[0]);
 	}
 	
 }
@@ -459,86 +776,123 @@ void *handle_all(void *fd)					//int fd
 	request buf;
 	b_data back_data;
 	int conn_fd = *(int *)fd;
+	int ret = 0;
 	while(1) {
-		int ret = recv(conn_fd,&buf,sizeof(buf),0);
-		if(ret < 0) {
-			perror("recv:");
-		}
-		else if(ret == 0) 
+		ret += recv(conn_fd,&buf,sizeof(buf),0);
+		if(ret == 0)
 			pthread_exit(0);
-		switch(buf.type) {
-			case 0100:
-				//处理登录请求
-				memset(&back_data,0,sizeof(b_data));
-				buf.fd = conn_fd;
-				back_data.cnt = login_server(buf);
-				send(conn_fd,&back_data,sizeof(b_data),0);
-				break;
-			case 0110:
-				//处理注册请求
-				memset(&back_data,0,sizeof(b_data));
-				back_data.cnt = register_server(buf);
-				send(conn_fd,&back_data,sizeof(b_data),0);
-				break;
-			case 0240:
-				//处理显示所有好友请求
-				printf("%s\n",buf.send_user);
-				memset(&back_data,0,sizeof(b_data));
-				display_all(buf,&back_data);
-				send(conn_fd,&back_data,sizeof(b_data),0);
-				break;
-			case 0250:
-				//处理查看私人聊天记录请求
-				printf("%s %s\n",buf.send_user,buf.recv_user);
-				memset(&back_data,0,sizeof(b_data));
-				View_record(buf,&back_data);
-				send(conn_fd,&back_data,sizeof(b_data),0);
-				break;
-			case 0370:
-				//处理查看群聊天记录请求
-				printf("%s %s\n",buf.send_user,buf.recv_user);
-				memset(&back_data,0,sizeof(b_data));
-				View_grecord(buf,&back_data);
-				send(conn_fd,&back_data,sizeof(b_data),0);
-				break;
-			case 0310:
-				//处理创建群聊请求
-				printf("%s %s\n",buf.send_user,buf.data);
-				memset(&back_data,0,sizeof(b_data));
-				Create_Group(buf,&back_data);
-				send(conn_fd,&back_data,sizeof(b_data),0);
-				break;
-			case 0210:
-				//处理添加好友请求
-				printf("%s %s\n",buf.send_user,buf.recv_user);
-				memset(&back_data,0,sizeof(b_data));
-				Add_Friend(buf,&back_data);
-				send(conn_fd,&back_data,sizeof(b_data),0);
-				break;
-			case 0220:
-				//处理删除好友请求
-				printf("%s %s\n",buf.send_user,buf.recv_user);
-				memset(&back_data,0,sizeof(b_data));
-				Delete_Friend(buf,&back_data);
-				send(conn_fd,&back_data,sizeof(b_data),0);
-				break;
-			case 0200:
-				//处理发送消息请求
-				printf("%s %s\n",buf.send_user,buf.recv_user);
-				memset(&back_data,0,sizeof(b_data));
-				Send_message(buf,&back_data);
-				send(conn_fd,&back_data,sizeof(b_data),0);
-			case 0300:
-				//处理发送群聊消息请求
-				printf("send_user = %s recv_user = %s\n",buf.send_user,buf.recv_user);
-				memset(&back_data,0,sizeof(b_data));
-				Send_gmessage(buf,&back_data);
-				send(conn_fd,&back_data,sizeof(b_data),0);
-				break;
+		else if(ret == sizeof(buf)) {
+			ret = 0;
+			switch(buf.type) {
+				case 0100:
+					//处理登录请求
+					memset(&back_data,0,sizeof(b_data));
+					buf.fd = conn_fd;
+					back_data.cnt = login_server(buf);
+					send(conn_fd,&back_data,sizeof(b_data),0);
+					break;
+				case 0110:
+					//处理注册请求
+					memset(&back_data,0,sizeof(b_data));
+					back_data.cnt = register_server(buf);
+					send(conn_fd,&back_data,sizeof(b_data),0);
+					break;
+				case 0240:
+					//处理显示所有好友请求
+					printf("%s\n",buf.send_user);
+					memset(&back_data,0,sizeof(b_data));
+					display_all(buf,&back_data);
+					send(conn_fd,&back_data,sizeof(b_data),0);
+					break;
+				case 0350:
+					//处理显示所有群请求
+					printf("%s\n",buf.send_user);
+					memset(&back_data,0,sizeof(b_data));
+					display_allg(buf,&back_data);
+					send(conn_fd,&back_data,sizeof(b_data),0);
+					break;
+				case 0250:
+					//处理查看私人聊天记录请求
+					printf("%s %s\n",buf.send_user,buf.recv_user);
+					memset(&back_data,0,sizeof(b_data));
+					View_record(buf,&back_data);
+					send(conn_fd,&back_data,sizeof(b_data),0);
+					break;
+				case 0370:
+					//处理查看群聊天记录请求
+					printf("%s %s\n",buf.send_user,buf.recv_user);
+					memset(&back_data,0,sizeof(b_data));
+					View_grecord(buf,&back_data);
+					send(conn_fd,&back_data,sizeof(b_data),0);
+					break;
+				case 0360:
+					//处理查看群成员请求
+					printf("%s %s\n",buf.send_user,buf.recv_user);
+					memset(&back_data,0,sizeof(b_data));
+					Show_member(buf,&back_data);
+					send(conn_fd,&back_data,sizeof(b_data),0);
+					break;
+				case 0310:
+					//处理创建群聊请求
+					printf("%s %s\n",buf.send_user,buf.data);
+					memset(&back_data,0,sizeof(b_data));
+					Create_Group(buf,&back_data);
+					send(conn_fd,&back_data,sizeof(b_data),0);
+					break;
+				case 0210:
+					//处理添加好友请求
+					printf("%s %s\n",buf.send_user,buf.recv_user);
+					memset(&back_data,0,sizeof(b_data));
+					Add_Friend(buf,&back_data);
+					send(conn_fd,&back_data,sizeof(b_data),0);
+					break;
+				case 0330:
+					//处理添加群请求
+					printf("%s %s\n",buf.send_user,buf.recv_user);
+					memset(&back_data,0,sizeof(b_data));
+					Add_Group(buf,&back_data);
+					send(conn_fd,&back_data,sizeof(b_data),0);
+					break;
+				case 0220:
+					//处理删除好友请求
+					printf("%s %s\n",buf.send_user,buf.recv_user);
+					memset(&back_data,0,sizeof(b_data));
+					Delete_Friend(buf,&back_data);
+					send(conn_fd,&back_data,sizeof(b_data),0);
+					break;
+				case 0340:
+					//处理退出群聊请求
+					printf("%s %s\n",buf.send_user,buf.recv_user);
+					memset(&back_data,0,sizeof(b_data));
+					Quit_Group(buf,&back_data);
+					send(conn_fd,&back_data,sizeof(b_data),0);
+					break;
+				case 0320:
+					//处理解散群
+					printf("%s %s\n",buf.send_user,buf.recv_user);
+					memset(&back_data,0,sizeof(b_data));
+					Delete_Group(buf,&back_data);
+					send(conn_fd,&back_data,sizeof(b_data),0);
+					break;
 
-			default:
-				//
-				break;
+				case 0200:
+					//处理发送消息请求
+					printf("%s %s\n",buf.send_user,buf.recv_user);
+					memset(&back_data,0,sizeof(b_data));
+					Send_message(buf,&back_data);
+					send(conn_fd,&back_data,sizeof(b_data),0);
+				case 0300:
+					//处理发送群聊消息请求
+					printf("send_user = %s recv_user = %s\n",buf.send_user,buf.recv_user);
+					memset(&back_data,0,sizeof(b_data));
+					Send_gmessage(buf,&back_data);
+					send(conn_fd,&back_data,sizeof(b_data),0);
+					break;
+
+				default:
+					//
+					break;
+			}
 		}
 	}
 
