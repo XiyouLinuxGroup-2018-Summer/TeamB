@@ -22,6 +22,7 @@ typedef struct reque{
 	char  data[50];							//请求数据
 	time_t time;							//请求时间
 	int flag;								//是否被处理
+	int size;								//请求数据大小
 }request;
 
 //消息记录结构体
@@ -29,13 +30,15 @@ struct record{
 	char send_user[20];						//发送方
 	char recv_user[20];						//接收方
 	time_t time;							//发送时间
-	int type;								//消息性质1,私聊2.群聊3.系统通知
+	int type;								//消息性质1,私聊2.群聊3.系统通知4.文件
 	char data[50];							//消息内容
 	int flag;								//是否被处理
+	int size;								//消息大小
 };
 
-//消息类型：31添加好友；32入群申请 ;33解散群
-//反馈消息类型： 431 添加好友; 432加入群申请;433解散群通知;	
+
+//消息类型：31添加好友；32入群申请 ;33解散群;4接收文件
+//反馈消息类型： 431 添加好友; 432加入群申请;433解散群通知;434踢人通知	
 //反馈数据类型结构体
 typedef struct dat{
 	int type;								//反馈消息类型
@@ -44,7 +47,23 @@ typedef struct dat{
 	char str[100][20];						//显示所有好友		3
 	struct record ar[50];					//消息记录			4
 	int flag;								//是否被处理
+	int size;								//反馈数据大小
 }b_data;
+
+//根据用户名得到对应的套接字
+int get_fd(char *name);
+
+//处理踢人请求					
+void Kick_member(request buf,b_data *back_data);
+
+//显示某个用户是否在线
+int Online(char *name);
+
+//处理离线消息
+void New_offline(b_data back_data,int fd);
+
+//处理发送文件请求
+void Send_file(request buf,b_data *back_data);
 
 //处理发送群聊消息请求
 void Send_gmessage(request buf,b_data *back_data);
@@ -108,4 +127,7 @@ void Chat_Friend(int fd);
 
 //群聊管理界面
 void Group_Manage(int fd);
+
+//处理注销请求
+void Quit(int fd);
 #endif

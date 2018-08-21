@@ -16,6 +16,179 @@
 
 MYSQL mysql;
 
+//处理踢人请求
+void Kick_member(request buf,b_data *back_data)
+{
+	//查看发送方是否具有权限
+	MYSQL_RES *res = NULL;
+	MYSQL_ROW rows;
+	char query_str[200];
+	memset(query_str,0,200);
+	sprintf(query_str,"select * from relationinfo where name1='%s' and name2='%s' and (power=1 or power=2)",buf.send_user,buf.data);
+	mysql_real_query(&mysql,query_str,strlen(query_str));
+	res = mysql_store_result(&mysql);
+	rows = mysql_fetch_row(res);
+	int num = mysql_num_rows(res);
+	if(num == 0) {
+		back_data->cnt = 0;
+		return;
+	}
+
+	//从用户关系信息表中删除
+	memset(query_str,0,200);
+	sprintf(query_str,"delete from relationinfo where name1='%s' and name2='%s'",buf.send_user,buf.data);
+	mysql_real_query(&mysql,query_str,strlen(query_str));
+	
+	//发送信息给被踢的用户
+	b_data auf;
+	memset(&auf,0,sizeof(auf));
+	auf.type = 434;
+	strcpy(auf.ar[0].send_user,buf.send_user);
+	strcpy(auf.ar[0].recv_user,buf.recv_user);
+	strcpy(auf.ar[0].data,buf.data);
+	
+	if(Online(buf.recv_user) == 0) {	//离线状态	
+		back_data->cnt = 1;
+		New_offline(auf,0);
+		return;
+	}
+
+	send(get_fd(buf.recv_user),&auf,sizeof(auf),0);
+
+}
+
+//根据用户名得到对应的套接字
+int get_fd(char *name)
+{
+	//根据用户名得到接收方套接字
+	MYSQL_RES *res = NULL;
+	MYSQL_ROW rows;
+	char query_str[200];
+	memset(query_str,0,200);
+	sprintf(query_str,"select * from userinfo where name='%s'",name);
+	mysql_real_query(&mysql,query_str,strlen(query_str));
+	res = mysql_store_result(&mysql);
+	rows = mysql_fetch_row(res);
+
+
+	return rows[2][0] - '0';
+}
+void Quit(int fd)
+{
+	MYSQL_RES *res = NULL;
+	MYSQL_ROW	rows;
+	char query_str[200];
+
+	//改变用户信息表中此套接字对应用户状态
+	memset(query_str,0,200);
+	sprintf(query_str,"update userinfo set state=0 where fd=%d",fd);
+	mysql_real_query(&mysql,query_str,strlen(query_str));
+
+
+}
+
+//处理发送消息时对方离线的问题
+void New_offline(b_data back_data,int fd)
+{
+	MYSQL_RES	*res = NULL;
+	MYSQL_ROW	rows;
+	int rc,row;
+	char query_str[200];
+	if(back_data.ar[0].flag == 0) {	
+	//将离线消息放入离线消息记录表中
+		memset(query_str,0,200);
+		sprintf(query_str,"insert into off_recordinfo(send_user,recv_user,type,data) values('%s','%s',%d,'%s')",back_data.ar[0].send_user,back_data.ar[0].recv_user,back_data.type,back_data.ar[0].data);
+		rc = mysql_real_query(&mysql,query_str,strlen(query_str));
+	}
+	
+	if(back_data.ar[0].flag == 1) {
+		//打开离线消息表，对比是否有需要发送的离线消息
+		memset(query_str,0,200);
+		sprintf(query_str,"select * from off_recordinfo where recv_user='%s'",back_data.ar[0].send_user);
+		rc = mysql_real_query(&mysql,query_str,strlen(query_str));
+		if(rc != 0)
+			printf("%s\n",mysql_error(&mysql));
+		res = mysql_store_result(&mysql);
+		row = mysql_num_rows(res);
+		printf(" row = %d\n",row);
+		if(row != 0) {								//存在需要发送的离线消息
+			b_data auf;
+			while(rows = mysql_fetch_row(res)) {
+				memset(&auf,0,sizeof(auf));
+				//初始化消息结构体
+				strcpy(auf.ar[0].send_user,rows[0]);
+				strcpy(auf.ar[0].recv_user,rows[1]);
+				auf.type = atoi(rows[2]);
+				strcpy(auf.ar[0].data,rows[3]);
+				printf("%s ==== %d\n",auf.ar[0].send_user,auf.type);
+				send(fd,&auf,sizeof(auf),0);
+			}
+			memset(query_str,0,200);
+			sprintf(query_str,"delete from off_recordinfo where recv_user='%s'",back_data.ar[0].send_user);
+			mysql_real_query(&mysql,query_str,strlen(query_str));
+		}
+	}
+
+
+
+
+}
+
+
+//处理发送文件请求
+void Send_file(request buf,b_data *back_data)
+{
+	
+	
+	if(buf.flag == 0) {					//第一次开始准备发送文件
+		back_data->cnt = 0;	
+		back_data->type = 0400;		//返回值类型为文件
+					
+		//根据用户名得到接收方套接字
+		MYSQL_RES *res = NULL;
+		MYSQL_ROW rows;
+		char query_str[200];
+		memset(query_str,0,200);
+		sprintf(query_str,"select * from userinfo where name='%s'",buf.recv_user);
+		mysql_real_query(&mysql,query_str,strlen(query_str));
+		res = mysql_store_result(&mysql);
+		rows = mysql_fetch_row(res);
+
+			
+		int fd = rows[2][0] - '0';
+
+		//将信息存入新的反馈结构体并发送给另一个客户端
+		b_data auf;
+		memset(&auf,0,sizeof(auf));
+		auf.type = 44;
+		strcpy(auf.ar[0].send_user,buf.send_user);
+		strcpy(auf.ar[0].data,buf.data);
+		auf.ar[0].type = 4;
+		auf.flag = 0;
+		auf.ar[0].size = buf.size;
+		if(rows[3][0] - '0' == 0) {	//对方未在线
+			New_offline(auf,0);		//信息存入离线消息表中
+			return;	
+		}
+		//发送接收文件大小以及名称给接收客户端
+		send(fd,&auf,sizeof(auf),0);
+		
+		return;
+	}
+	if(buf.flag == 1 && buf.data[0] == '\0') {	
+		//发送同意接收反馈给发送方
+		back_data->cnt = 1;
+		send(get_fd(buf.send_user),back_data,sizeof(b_data),0);
+	}
+	else if(buf.flag == 1 && buf.data[0] != '\0') {
+		//将文件内容传输到接收方	
+		printf("data is :%s",buf.data);
+		strcpy(back_data->ar[0].data,buf.data);
+		send(get_fd(buf.recv_user),back_data,sizeof(b_data),0);
+	}	
+
+
+}
 //处理发送群聊消息请求
 void Send_gmessage(request buf,b_data *back_data)
 {
@@ -46,25 +219,20 @@ void Send_gmessage(request buf,b_data *back_data)
 			memset(query_str,0,strlen(query_str));
 			sprintf(query_str,"select * from userinfo where name='%s'",ptr[i]);
 			rc = mysql_real_query(&mysql,query_str,strlen(query_str));
-
-			//判断对方是否离线
+			
 			res = mysql_store_result(&mysql);
 			fields = mysql_num_fields(res);
 			rows = mysql_fetch_row(res);
 
-			if(rows[3][0] - '0' == 0) {
-				back_data->cnt = 1;
-				break;
-			}
-			
-			int	recv_fd = rows[2][0] - '0';
+
+						int	recv_fd = rows[2][0] - '0';
 		
 			//将消息写入群聊天记录表中
 			memset(query_str,0,strlen(query_str));
 			sprintf(query_str,"insert into recordinfo(send_user,recv_user,type,data) values('%s','%s',%d,'%s')",buf.send_user,buf.recv_user,42,buf.data);
 			rc = mysql_real_query(&mysql,query_str,strlen(query_str));
 
-			//接收方存在且在线
+			//处理要发送的消息
 			back_data->cnt = 1;
 			b_data auf;
 			memset(&auf,0,sizeof(auf));
@@ -73,8 +241,15 @@ void Send_gmessage(request buf,b_data *back_data)
 			strcpy(auf.ar[0].send_user,buf.send_user);
 			strcpy(auf.ar[0].recv_user,buf.recv_user);
 			auf.ar[0].type = 2;
+			auf.flag = 0;
 			strcpy(auf.ar[0].data,buf.data);
-			printf("%s------->>>>%s\n",buf.send_user,buf.data);
+			//判断对方是否离线
+				if(rows[3][0] - '0' == 0) {
+				back_data->cnt = 1;
+				New_offline(auf,0);
+				continue;
+			}
+			
 			send(recv_fd,&auf,sizeof(b_data),0);	//发送消息
 		}
 	}
@@ -94,18 +269,14 @@ void Send_message(request buf,b_data *back_data)
 	sprintf(query_str,"select * from userinfo where name='%s'",buf.recv_user);
 	rc = mysql_real_query(&mysql,query_str,strlen(query_str));
 	
-	//判断对方是否离线
 	res = mysql_store_result(&mysql);	
 	fields = mysql_num_fields(res);
 	rows = mysql_fetch_row(res);
 
-	if(rows[3][0] - '0'== 0) {
-		back_data->cnt = 1;				//搁置请求，等对方上线再发送
-		return;
-	}
-
+	
+	int state = rows[3][0] - '0';
 	recv_fd = atoi(rows[2]);
-	printf("recv_fd = %d\n",recv_fd);
+	printf("recv_fd = %d\nstate = %d",recv_fd,state);
 
 	//将消息写入聊天记录表中
 	memset(query_str,0,strlen(query_str));
@@ -121,7 +292,16 @@ void Send_message(request buf,b_data *back_data)
 	strcpy(auf.ar[0].send_user,buf.send_user);
 	strcpy(auf.ar[0].recv_user,buf.recv_user);
 	auf.ar[0].type = 1;
+	auf.flag = 0;
 	strcpy(auf.ar[0].data,buf.data);
+	
+	//判断对方是否离线
+	if(state == 0) {
+		back_data->cnt = 1;				//搁置请求，等对方上线再发送
+		printf("\noff __ line\n");
+		New_offline(auf,0);
+		return;
+	}
 	send(recv_fd,&auf,sizeof(b_data),0);//发送消息
 
 
@@ -172,10 +352,19 @@ void Delete_Group(request buf,b_data *back_data)
 		b_data auf;
 		memset(&auf,0,sizeof(b_data));
 		auf.type = 433;
+		auf.flag = 0;
 		strcpy(auf.ar[0].send_user,buf.send_user);
 		strcpy(auf.ar[0].recv_user,buf.recv_user);
 		auf.ar[0].type = 33;
-		printf("fd = %d\n",fd);
+		
+		//判断对方是否离线
+		if(rows[3][0] - '0' == 0) {
+			back_data->cnt = 1;
+			New_offline(auf,0);
+			continue;
+		}
+		
+		
 		send(fd,&auf,sizeof(b_data),0);	
 	}
 	//删除用户关系表中所有该群信息
@@ -243,6 +432,13 @@ void Quit_Group(request buf,b_data *back_data)
 			strcpy(auf.ar[0].data,buf.data);
 			auf.ar[0].type = 34;
 			auf.flag == 0;
+
+			//判断对方是否离线
+			if(rows2[3][0] - '0' == 0) {
+				back_data->cnt = 1;
+				New_offline(auf,0);
+				continue;
+			}
 			send(fd,&auf,sizeof(b_data),0);	
 
 		}
@@ -275,7 +471,6 @@ void Delete_Friend(request buf,b_data *back_data)
 	rc = mysql_real_query(&mysql,query_str,strlen(query_str));
 	if(rc != 0) {
 		back_data->cnt = 0;					//说明双方不是好友了
-		puts("1");
 		return;	
 	}
 	
@@ -389,6 +584,13 @@ void Add_Group(request buf,b_data *back_data)
 				strcpy(auf.ar[0].data,buf.data);
 				auf.ar[0].type = 32;
 				auf.flag == 0;
+				//判断对方是否离线
+				if(strcmp(rows[3],"0") == 0)	{									//离线状态
+					back_data->cnt = 1;				//搁置请求，等对方上线再发送
+					New_offline(auf,0);
+					return;
+				}
+
 				send(fd,&auf,sizeof(b_data),0);	
 
 			}
@@ -424,6 +626,13 @@ void Add_Group(request buf,b_data *back_data)
 		strcpy(auf.ar[0].recv_user,buf.recv_user);
 		
 		//反馈给申请加入的用户
+		//判断对方是否离线
+		if(strcmp(rows[3],"0") == 0)	{									//离线状态
+			back_data->cnt = 1;				//搁置请求，等对方上线再发送
+			New_offline(auf,0);
+			return;
+		}	
+
 		send(rows[2][0] - '0',&auf,sizeof(b_data),0);
 		return;
 	}
@@ -449,7 +658,6 @@ void Add_Friend(request buf,b_data * back_data)
 		back_data->cnt = 0;					//说明双方已经是好友了
 		return;	
 	}
-	//判断对方是否离线
 	mysql_store_result(&mysql);
 	memset(query_str,0,sizeof(strlen(query_str)));
 	sprintf(query_str,"select * from userinfo where name='%s'",buf.recv_user);
@@ -464,11 +672,30 @@ void Add_Friend(request buf,b_data * back_data)
 	row = mysql_num_rows(res);
 	fields = mysql_num_fields(res);
 	rows = mysql_fetch_row(res);
+	
+	recv_fd = rows[2][0] - '0';
+	
+	//处理待发送的消息
+	back_data->cnt = 1;
+
+	b_data auf;
+	memset(&auf,0,sizeof(b_data));
+	auf.type = 431;
+	strcpy(auf.ar[0].send_user,buf.send_user);
+	strcpy(auf.ar[0].recv_user,buf.recv_user);
+	auf.ar[0].type = 31;
+	strcpy(auf.ar[0].data,buf.data);
+	//判断对方是否离线
 	if(strcmp(rows[3],"0") == 0)	{									//离线状态
 		back_data->cnt = 1;				//搁置请求，等对方上线再发送
+		New_offline(auf,0);
 		return;
 	}
-	recv_fd = rows[2][0] - '0';
+	
+	send(recv_fd,&auf,sizeof(b_data),0);//发送请求
+
+
+
 	//若为第二次处理申请
 	if(buf.flag == 1) {
 		puts("ok mubiao");
@@ -485,21 +712,17 @@ void Add_Friend(request buf,b_data * back_data)
 		strcpy(auf.ar[0].send_user,buf.recv_user);
 		
 		//反馈给请求添加好友的用户
+		//判断对方是否离线
+		if(strcmp(rows[3],"0") == 0)	{									//离线状态
+			back_data->cnt = 1;				//搁置请求，等对方上线再发送
+			New_offline(auf,0);
+			return;
+		}
+
 		send(recv_fd,&auf,sizeof(b_data),0);
 		return;
 	}
 	
-	//接收方存在且在线
-	back_data->cnt = 1;
-
-	b_data auf;
-	memset(&auf,0,sizeof(b_data));
-	auf.type = 431;
-	strcpy(auf.ar[0].send_user,buf.send_user);
-	strcpy(auf.ar[0].recv_user,buf.recv_user);
-	auf.ar[0].type = 31;
-	strcpy(auf.ar[0].data,buf.data);
-	send(recv_fd,&auf,sizeof(b_data),0);//发送请求
 
 }
 //处理查看群成员请求
@@ -612,13 +835,22 @@ void View_record(request buf,b_data *back_data)
 //显示某个用户是否在线
 //参数：用户名
 //若在线，返回1，若不在线，返回2
-/*int Online(char *name)
+int Online(char *name)
 {
+	//根据用户名得到状态
+	MYSQL_RES *res = NULL;
+	MYSQL_ROW rows;
 	char query_str[200];
-	memset(query_str,0,strlen(query_str));
+	memset(query_str,0,200);
+	sprintf(query_str,"select * from userinfo where name='%s'",name);
+	mysql_real_query(&mysql,query_str,strlen(query_str));
+	res = mysql_store_result(&mysql);
+	rows = mysql_fetch_row(res);
+	return rows[3][0] - '0';
+}
 
-	sprintf
-*/
+
+
 
 //处理显示所有群请求
 //参数：用户名
@@ -689,10 +921,24 @@ void display_all(request buf,b_data *back_data)
 	row = mysql_num_rows(res);
 	fields = mysql_num_fields(res);
 	while((rows = mysql_fetch_row(res))) {
-			if(strcmp(rows[0],name) == 0 && strcmp(rows[2],"4") == 0)
-				strcpy(back_data->str[count++],rows[1]);
-			if(strcmp(rows[1],name) == 0 && strcmp(rows[2],"4") == 0)
-				strcpy(back_data->str[count++],rows[0]);
+			if(strcmp(rows[0],name) == 0 && strcmp(rows[2],"4") == 0) {
+				strcpy(back_data->str[count],rows[1]);
+				back_data->str[count][strlen(rows[1])] = '\0';
+				if(Online(rows[1]) == 1)
+					strcat(back_data->str[count++],"(online)");
+				else
+					strcat(back_data->str[count++],"(offline)");
+			}
+			if(strcmp(rows[1],name) == 0 && strcmp(rows[2],"4") == 0)  {
+				strcpy(back_data->str[count],rows[0]);
+				back_data->str[count][strlen(rows[1])] = '\0';
+				if(Online(rows[1]) == 1)
+					strcat(back_data->str[count++],"(online)");
+				else
+					strcat(back_data->str[count++],"(offline)");
+			}
+			
+	
 	}
 	
 }
@@ -704,6 +950,7 @@ void display_all(request buf,b_data *back_data)
 int login_server(request buf)
 {
 	MYSQL_RES *res = NULL;
+	MYSQL_ROW row;
 	int rows;
 	char query_str[200];						//存放mysql语句的字符串数组
 	int rc;
@@ -734,6 +981,11 @@ int login_server(request buf)
 		}
 		memset(query_str,0,strlen(query_str));
 	}
+	
+
+
+
+
 	return feedback;	
 }
 
@@ -791,11 +1043,25 @@ void *handle_all(void *fd)					//int fd
 					back_data.cnt = login_server(buf);
 					send(conn_fd,&back_data,sizeof(b_data),0);
 					break;
+				case 0500:
+					//处理显示离线请求
+					printf("%s --\n",buf.send_user);
+					memset(&back_data,0,sizeof(b_data));
+					back_data.ar[0].flag = 1;
+					strcpy(back_data.ar[0].send_user,buf.send_user);
+					
+					New_offline(back_data,conn_fd);
+					break;
 				case 0110:
 					//处理注册请求
 					memset(&back_data,0,sizeof(b_data));
 					back_data.cnt = register_server(buf);
 					send(conn_fd,&back_data,sizeof(b_data),0);
+					break;
+				case 0130:
+					//处理注销请求
+					buf.fd = conn_fd;
+					Quit(buf.fd);
 					break;
 				case 0240:
 					//处理显示所有好友请求
@@ -886,6 +1152,20 @@ void *handle_all(void *fd)					//int fd
 					printf("send_user = %s recv_user = %s\n",buf.send_user,buf.recv_user);
 					memset(&back_data,0,sizeof(b_data));
 					Send_gmessage(buf,&back_data);
+					send(conn_fd,&back_data,sizeof(b_data),0);
+					break;
+				case 0400:
+					//处理发送文件请求
+					printf("%s %d\n",buf.data,buf.flag);
+					memset(&back_data,0,sizeof(b_data));
+					Send_file(buf,&back_data);
+					send(conn_fd,&back_data,sizeof(b_data),0);			
+					break;
+				case 0372:
+					//处理踢人请求
+					printf("%s %s\n",buf.send_user,buf.recv_user);
+					memset(&back_data,0,sizeof(b_data));
+					Kick_member(buf,&back_data);
 					send(conn_fd,&back_data,sizeof(b_data),0);
 					break;
 

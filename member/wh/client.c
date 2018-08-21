@@ -10,10 +10,12 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netinet/in.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include "myQQ.h"
 #define PORT		5678
 
-char *user;							//记录此时登录的用户
+char user[20];							//记录此时登录的用户
 b_data back_data;
 int count;
 pthread_mutex_t mutex;
@@ -38,6 +40,7 @@ void *fback(void *arg)
 				if(back_data.flag == 0)	{					//提交的申请
 					printf("用户%s请求加您为好友\n",back_data.ar[0].send_user);
 					back_data.ar[0].flag = 0;
+					back_data.ar[0].type = 31;
 					memcpy((void *)&cr[cnt++],(void *)&back_data.ar[0],sizeof(struct record));
 				}
 				else {										//已同意的反馈
@@ -48,6 +51,7 @@ void *fback(void *arg)
 				if(back_data.flag == 0) {
 					printf("用户%s请求加入群聊%s\n",back_data.ar[0].send_user,back_data.ar[0].recv_user);
 					back_data.ar[0].flag = 0;
+					back_data.ar[0].type = 32;
 					memcpy((void *)&cr[cnt++],(void *)&back_data.ar[0],sizeof(struct record));
 				}
 				else										//接收到同意加群的反馈
@@ -68,6 +72,7 @@ void *fback(void *arg)
 				}
 				else {										//没有和此好友聊天
 					printf("您有一条来自好友%s的新消息，请及时查看\n",back_data.ar[0].send_user);
+					back_data.ar[0].type = 1; 
 					memcpy((void *)&cr[cnt++],(void *)&back_data.ar[0],sizeof(struct record));
 				}
 			}
@@ -80,6 +85,11 @@ void *fback(void *arg)
 					printf("您有一条来自群聊%s的新消息，请及时查看\n",back_data.ar[0].recv_user);
 					memcpy((void *)&cr[cnt++],(void *)&back_data.ar[0],sizeof(struct record));
 				}
+			}
+			else if(back_data.type == 44 && back_data.flag == 0) {				//准备好了接收文件
+				printf("您有一条来自用户%s的请求，请及时查看\n",back_data.ar[0].send_user);
+				memcpy((void *)&cr[cnt++],(void *)&back_data.ar[0],sizeof(struct record));
+
 			}
 			count = 1;					//经过处理之后将是否接收到该消息标志置为1
 			num = 0;
@@ -114,16 +124,17 @@ int main(int argc,char *argv[])
 	pthread_create(&thid,NULL,fback,(void *)&sock_fd);
 	
 	//选择功能
-	printf("1.登录\n2.注册\n3.退出\n");
+	printf("1.登录\n2.注册\nq.退出\n");
 	char choice;
-	while(scanf("%c",&choice) && choice != '3') {
+	memset(user,0,20);
+	while(scanf("%c",&choice) && choice != 'q') {
 		switch(choice) {
 			case '1':
 				memset(&buf,0,sizeof(buf));
 				buf.type = 0100;
 				printf("请输入用户名:");
 				scanf("%s",buf.send_user);
-				user = buf.send_user;
+				strcpy(user,buf.send_user);
 				printf("请输入密码:");
 				scanf("%s",buf.data);
 				passwd = buf.data;					//使用全局变量保存登陆者的信息以便在其他函数中调用
@@ -135,8 +146,14 @@ int main(int argc,char *argv[])
 			
 				while(1) {
 					if(count == 1 && back_data.cnt == 1) {
-						user = buf.send_user;
 						puts("登陆成功!");
+						
+						//发送显示离线消息请求
+						memset(&buf,0,sizeof(buf));
+						buf.type = 0500;
+						strcpy(buf.send_user,user);
+						send(sock_fd,&buf,sizeof(buf),0);
+						
 						Main_menu(sock_fd);								//进入管理界面
 						break;
 					}
@@ -172,8 +189,16 @@ int main(int argc,char *argv[])
 				break;
 		}
 		while(getchar() != '\n');
-		printf("1.登录\n2.注册\n3.退出\n");
+		printf("1.登录\n2.注册\nq.退出\n");
 	}
+	//处理注销请求
+	
+	memset(&buf,0,sizeof(buf));
+	buf.type = 0130;
+	
+	send(sock_fd,&buf,sizeof(buf),0);
+
+
 	return 0;
 }
 
@@ -182,7 +207,7 @@ void Main_menu(int fd)
 {
 	int choice;
 	request buf;
-	printf("1.好友管理\n2.群管理\n3.消息管理\n4.账号管理\nq.返回上一层\n");
+	printf("1.好友管理\n2.群管理\n3.消息管理\nq.返回上一层\n");
 	while(scanf("%d",&choice) && choice != 'q') {
 		switch(choice) {
 			case 1:
@@ -200,7 +225,7 @@ void Main_menu(int fd)
 			default:
 				printf("请输入正确的选项\n");
 		}
-		printf("1.好友管理\n2.群管理\n3.消息管理\n4.账号管理\nq.返回上一层\n");
+		printf("1.好友管理\n2.群管理\n3.消息管理\nq.返回上一层\n");
 		while(getchar() != '\n');
 	}
 	memset(user,0,20);
@@ -261,9 +286,9 @@ void Friend_Manage(int fd)
 					if(count == 1 && back_data.ar[0].data[0] != '\0') {
 						for(i = 0;back_data.ar[i].data[0] != '\0';i++) {
 							if(strcmp(back_data.ar[i].send_user,user) == 0)
-								printf("%50s:%s\n",back_data.ar[i].data,back_data.ar[i].recv_user);
+								printf("%50s:%s\n",back_data.ar[i].data,user);
 							else
-								printf("%s:%-50s\n",user,back_data.ar[i].data);
+								printf("%s:%-50s\n",back_data.ar[i].recv_user,back_data.ar[i].data);
 						}
 						break;
 					}
@@ -272,8 +297,9 @@ void Friend_Manage(int fd)
 				}
 
 				//发送消息
-				printf("1.发送消息\nq.退出\n");
+				printf("1.发送消息\n2.发送文件\nq.退出\n");
 				strcpy(friend,buf.recv_user);			//设置正在聊天的好友
+				while(getchar() != '\n');
 				while(scanf("%d",&choice2) && choice2 != 'q') {
 					switch(choice2) {
 						case 1:
@@ -292,11 +318,65 @@ void Friend_Manage(int fd)
 							send(fd,&buf,sizeof(buf),0);			//发送消息请求
 							
 							break;
+						case 2: { 
+							memset(&buf,0,sizeof(buf));
+							printf("输入文件名:");
+							scanf("%s",buf.data);
+							//打开当前目录下的此文件，计算其大小，将文件名连同大小发送到服务器
+							int filed;
+							struct stat auf;
+							char c;									//用一字节来传输文件
+							if((filed = open(buf.data,O_RDWR) )== -1) 
+								perror("");
+
+							if(lstat(buf.data,&auf) == -1) 
+								perror("");
+
+							//初始化请求结构体
+							buf.type = 0400;
+							strcpy(buf.recv_user,friend_name);
+							strcpy(buf.send_user,user);
+							buf.flag = 0;
+							buf.size = auf.st_size;
+							int num = 0;
+							
+							count = 0;
+							memset(&back_data,0,sizeof(back_data));
+							send(fd,&buf,sizeof(buf),0);
+							printf("正在等待对方同意\n");
+							while(1) {
+								printf("#\n");
+								sleep(1);
+								if(count == 1 && back_data.cnt == 1) {
+									//开始传输文件
+									printf("*\n");
+									memset(&buf,0,sizeof(buf));
+									buf.type = 0400;
+									buf.flag = 1;
+									strcpy(buf.recv_user,friend_name);
+									strcpy(buf.send_user,user);
+									if((num += read(filed,buf.data,50)) == auf.st_size) {//到末尾结束
+																	//清空请求数据以此作为结束标志
+										memset(buf.data,0,50);
+										strcpy(buf.data,"wanbi");
+										send(fd,&buf,sizeof(buf),0);
+										printf("发送完毕\n");
+										break;
+									}
+									send(fd,&buf,sizeof(buf),0);
+									count = 0;
+								}
+
+							}
+							break;	
+									
+
+						}
 						default:
 							printf("请输入正确的选项\n");
 							break;
 					}
-					printf("1.发送消息\nq.退出\n");
+					printf("1.发送消息\n2.发送文件\nq.退出\n");
 				}
 				memset(friend,0,20);				//将正在聊天的好友置0
 				break;
@@ -384,7 +464,7 @@ void News_Manage(int fd)
 
 	memset(friend_name,0,20);
 	while(getchar() != '\n');
-	printf("1.私聊\n2.群聊\n3.系统通知\nq.退出\n");
+	printf("1.私聊\n2.群聊\n3.系统通知\n4.文件传输\nq.退出\n");
 	while(scanf("%c",&choice) && choice != 'q') {
 		switch(choice) {
 			case '1':
@@ -395,6 +475,7 @@ void News_Manage(int fd)
 				}
 				printf("1.我要回复\nq.算了懒得回了(退出)\n");
 				//进入私聊界面
+				while(getchar() != '\n');
 				while(scanf("%c",&choice3) && choice3 != 'q') {
 					switch(choice3) {
 						case '1':
@@ -416,12 +497,12 @@ void News_Manage(int fd)
 				break;
 			
 			case '3':
-				while(getchar() != '\n');
 				//处理所有系统通知和好友请求
 				for(i = 0;i < cnt;i++) {
 					if(cr[i].type == 31 && cr[i].flag == 0) {
 						printf("%s请求加您为好友:(y/n)(第%d条，还有%d条待处理)\n验证消息%s\n",cr[i].send_user,i+1,cnt-i-1,cr[i].data);
 						char c;
+						while(getchar() != '\n');
 						scanf("%c",&c);
 						if(c == 'y') {
 							memset(&buf,0,sizeof(buf));
@@ -468,11 +549,52 @@ void News_Manage(int fd)
 					}
 				}
 				break;
-				
-			default:
+			case '4':
+				while(getchar() != '\n');
+				for(i = 0;i < cnt;i++)
+					if(cr[i].type == 4) {		//接收文件请求
+						char c;
+						printf("是否接收来自用户%s的文件(y/n)",cr[i].send_user);
+						c = getchar();
+						while(getchar() != '\n');
+						if(c == 'y') {
+							//向服务器发送接收文件的请求
+							memset(&buf,0,sizeof(buf));
+							buf.type = 0400;
+							buf.flag = 1;
+							strcpy(buf.send_user,cr[i].send_user);
+							strcpy(buf.recv_user,cr[i].recv_user);
+							send(fd,&buf,sizeof(buf),0);
 
-				printf("请输入正确的选项\n");
-				break;
+							count = 0;
+							int size = cr[i].size;
+							char *filename = cr[i].data;
+							
+							//根据文件名创建文件并打开
+							int fp = open(filename,O_CREAT | O_APPEND | O_RDWR,0777);
+							//开始接收文件
+							while(1) {
+								if(count == 1 && back_data.ar[0].data[0] != '\0') {
+									write(fp,back_data.ar[0].data,50);
+									count = 0;	
+									printf("#\n");
+									//接收完这一波数据，发送反馈
+									//请求接收下一波
+									memset(buf.data,0,50);
+									send(fd,&buf,sizeof(buf),0);
+								}
+								else if(count == 1 && strcmp(back_data.ar[0].data,"wanbi") == 0) {
+									printf("接收完毕\n");
+									break;
+								}
+							}
+						}
+						else 
+							printf("已拒绝\n");
+					}
+						default:
+							printf("请输入正确的选项\n");
+							break;
 		}
 		while(getchar() != '\n');
 		printf("1.私聊\n2.群聊\n3.系统通知\nq.退出\n");
@@ -486,14 +608,14 @@ void Chat_Friend(int fd)
 	char friend_name[20];
 	int i;
 	char choice2;
-	
+	char file[20];
+
 	memset(friend_name,0,20);
 	printf("请输入好友昵称:");
 	scanf("%s",buf.recv_user);
 	//显示之前五十条聊天记录
 	memset(friend,0,20);
 	strcpy(friend,buf.recv_user);
-	printf("%s\n",friend);
 	strcpy(friend_name,buf.recv_user);
 	buf.type = 0250;
 	strcpy(buf.send_user,user);
@@ -509,9 +631,9 @@ void Chat_Friend(int fd)
 		if(count == 1 && back_data.ar[0].data[0] != '\0') {
 			for(i = 0;back_data.ar[i].data[0] != '\0';i++) {
 				if(strcmp(back_data.ar[i].send_user,user) == 0)
-					printf("%50s:%s\n",back_data.ar[i].data,back_data.ar[i].recv_user);
+					printf("%50s:%s\n",back_data.ar[i].data,user);
 				else
-					printf("%s:%-50s\n",user,back_data.ar[i].data);
+					printf("%s:%-50s\n",back_data.ar[0].send_user,back_data.ar[i].data);
 			}
 			break;
 		}
@@ -520,12 +642,14 @@ void Chat_Friend(int fd)
 	}
 
 	//发送消息
-	printf("1.发送消息\nq.退出\n");
+	printf("1.发送消息\n2.发送文件\nq.退出\n");
+	strcpy(friend,buf.recv_user);
 	while(getchar() != '\n');
 	while(scanf("%c",&choice2) && choice2 != 'q') {
 		switch(choice2) {
-			case 1:
+			case '1':
 				memset(&buf,0,sizeof(buf));		//清空请求结构体
+				
 				printf("请输入你想发送的内容:");
 				scanf("%s",buf.data);
 				buf.type = 0200;
@@ -540,11 +664,62 @@ void Chat_Friend(int fd)
 				send(fd,&buf,sizeof(buf),0);			//发送消息请求
 
 				break;
+			case '2': {
+				memset(&buf,0,sizeof(buf));
+				printf("输入文件名:");
+				scanf("%s",file);
+				//打开当前目录下的此文件，计算其大小，将文件名连同大小发送到服务器
+				int filed;
+				struct stat auf;
+				char c;									//用一字节来传输文件
+				int size;						//记录已传输的大小
+				if((filed = open(file,O_RDONLY) )== -1) 
+					perror("");
+				
+				if(lstat(file,&auf) == -1) 
+					perror("");
+
+				//初始化请求结构体
+				strcpy(buf.data,file);
+				buf.type = 0400;
+				strcpy(buf.recv_user,friend_name);
+				buf.flag = 0;
+				buf.size = auf.st_size;
+				
+				count = 0;
+				memset(&back_data,0,sizeof(back_data));
+				send(fd,&buf,sizeof(buf),0);
+
+
+				printf("正在等待对方同意\n");
+				while(1) {
+					printf("#\n");
+					sleep(1);
+					if(count == 1 && back_data.cnt == 1) {
+					//开始传输文件
+						memset(&buf,0,sizeof(buf));
+						buf.type = 0400;
+						buf.flag = 1;
+						strcpy(buf.recv_user,friend_name);
+						strcpy(buf.send_user,user);
+						if(read(filed,buf.data,50) < 1) {	//到末尾结束
+							memset(buf.data,0,50);
+							strcpy(buf.data,"wanbi");
+							send(fd,&buf,sizeof(buf),0);
+							printf("发送完毕\n");
+							break;
+						}
+						printf("data = %s\n",buf.data);
+						send(fd,&buf,sizeof(buf),0);
+						count = 0;
+					}
+				}
+			}
 			default:
 				printf("请输入正确的选项\n");
 				break;
 		}
-		printf("1.发送消息\nq.退出\n");
+		printf("1.发送消息\n2.发送文件\nq.退出\n");
 	}
 }
 
@@ -587,7 +762,7 @@ void Chat_Group(int fd)
 
 
 	//发送消息
-	printf("1.发送消息\nq.退出\n");
+	printf("1.发送消息\n2.踢人\nq.退出\n");
 	strcpy(group,buf.recv_user);
 	while(getchar() != '\n');				//清空缓冲区	
 	while(scanf("%c",&choice2) && choice2 != 'q') {
@@ -608,6 +783,26 @@ void Chat_Group(int fd)
 				send(fd,&buf,sizeof(buf),0);			//发送消息
 
 				break;
+			case '2':
+				memset(&buf,0,sizeof(buf));		//清空请求结构体
+				printf("请输入你想踢走的群成员:");
+				scanf("%s",buf.recv_user);
+				buf.type = 0372;
+				strcpy(buf.send_user,user);
+				strcpy(buf.data,group);
+
+				count = 0;
+				memset(&back_data,0,sizeof(back_data));
+				send(fd,&buf,sizeof(buf),0);
+				
+				while(1) {
+					if(count == 1 && back_data.cnt == 1)
+						printf("成功\n");
+					else if(count == 1 && back_data.cnt == 0)
+						printf("失败\n");
+				}
+				break;
+
 			default:
 				printf("请输入正确的选项\n");
 				break;
