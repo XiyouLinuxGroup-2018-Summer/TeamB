@@ -247,9 +247,6 @@ void process(char *str, int socket)
 	else if(strncmp(str, "~add:", 5) == 0)         //添加好友
 		add_friend(str, socket);
 
-	else if(strncmp(str, "~@agree:", 7) == 0)      //是否同意添加好友
-		agree_friend(str, socket);
-
 	else if(strncmp(str, "~rm:", 4) == 0)          //删除好友
  		rm_friend(str, socket);
 
@@ -273,6 +270,9 @@ void process(char *str, int socket)
 
 	else if(strncmp(str, "~@@", 3) == 0)           //是否同意添加群聊
 		aod_group(str, socket);	
+	
+	else if(strncmp(str, "~@", 2) == 0)      //是否同意添加好友
+		agree_friend(str, socket);
 
 	else if(strncmp(str, "~g:", 3) == 0)           //发送群消息
 		send_group(str, socket);
@@ -648,7 +648,7 @@ void add_friend(char *str, int socket)
 		if(socket == atoi(row[1]))
 		{
 			strcat(message, row[0]);
-			char *temp = " want to add you";
+			char *temp = ":want to add you";
 			strcat(message, temp);
 			count++;
 		}
@@ -1242,7 +1242,7 @@ void send_group(char *str, int socket)
 	MYSQL_ROW ro;
 	int sock_fd;           //保存查找到的用户套接字
 	char message[200];
-	sprintf(message, "群%s(用户%s)发送一条消息:%s", group_name, send_name, send_message);
+	sprintf(message, "群:%s:用户%s:发送一条消息:%s", group_name, send_name, send_message);
 	printf("group message = %s\n", message);
 	
 	/*保存聊天记录*/
@@ -1306,12 +1306,13 @@ void group_his(char *str, int socket)
 	res = mysql_store_result(con);
 	while(row = mysql_fetch_row(res))
 	{
-		if(socket = atoi(row[1]))
+		if(socket == atoi(row[1]))
 		{
 			strcpy(name, row[0]);
 			break;
 		}
 	}
+	printf("name = %s\n", name);
 	char *sql_se = "SELECT group_name, member, message from group_his";
 	if( mysql_real_query(con, sql_se, strlen(sql_se)) )
 		my_err("select", __LINE__);
@@ -1325,7 +1326,7 @@ void group_his(char *str, int socket)
 			{
 				char message[200] = {0};
 				char *p = "                                     ";
-				sprintf(message, "g_his:%s send : %s", row[1], row[2]);
+				sprintf(message, "g_his:%s%s send : %s", p, row[1], row[2]);
 				printf("g_his = %s\n", message);
 				if(send(socket, message, send_length, 0) < 0)
 					my_err("send", __LINE__);
@@ -1346,7 +1347,6 @@ void group_his(char *str, int socket)
 void watch_group(char *str, int socket)
 {
 	char name[20] = {0};
-	char message[200] = {0};
 	/*解析出用户名*/
 	char *sql_se = "SELECT username, socket from online";
 	if( mysql_real_query(con, sql_se, strlen(sql_se)) )
@@ -1368,9 +1368,10 @@ void watch_group(char *str, int socket)
 	res = mysql_store_result(con);
 	while(row = mysql_fetch_row(res))
 	{
+		char message[200] = "g:";
 		if(strcmp(name, row[1]) == 0)
 		{
-			strcpy(message, row[0]);
+			strcat(message, row[0]);
 			printf("message = %s\n", message);
 			if(send(socket, message, send_length, 0) < 0)
 				my_err("send", __LINE__);
@@ -1520,7 +1521,7 @@ void set_ad(char *str, int socket)
 				return;
 		}
 	}
-	char message[200] = "小伙子，等升官了再来设置管理员权限把";
+	char message[200] = "#小伙子，等升官了再来设置管理员权限把";
 	if(send(socket, message, send_length, 0) < 0)
 		my_err("send", __LINE__);
 }
@@ -1590,11 +1591,16 @@ void del_member(char *str, int socket)
 				return;
 		}
 	}
-	char message[200] = "人可不是你能乱踢的";
+	char message[200] = "#人可不是你能乱踢的";
 	if(send(socket, message, send_length, 0) < 0)
 		my_err("send", __LINE__);
 }
 
+/*发送文件*/
+void send_file(char *str, int socket)
+{
+	
+}
 
 
 int main(void)

@@ -388,7 +388,9 @@ void *send_message(void *arg)
 		strcat(message, message1);
 		/*查看好友列表*/
 		if(strcmp(message, "~") == 0)
+		{
 			printf("-----------------------好友列表------------------------\n");
+		}
 		/*查看用户消息记录*/
 		else if(strncmp(message, "~history:", 9) == 0)
 		{
@@ -539,6 +541,7 @@ int main(int argc, char *argv[])
 		default:
 			printf("小伙子请输入正确的命令\n");
 	}
+	printf("=================================================\n");
 	printf("添加好友在屏幕上输入     ");
 	RED
 	printf("add:加好友名字\n");
@@ -595,6 +598,7 @@ int main(int argc, char *argv[])
 	RED
 	printf("set:加群名:加用户名\n");
 	CLOSE
+	printf("=================================================\n");
 	pthread_t tid1, tid2;
 	pthread_create(&tid1, NULL, send_message, (void *)&cli_fd);
 	pthread_create(&tid2, NULL, recv_message, (void *)&cli_fd);
