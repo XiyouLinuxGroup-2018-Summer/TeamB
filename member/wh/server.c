@@ -1198,6 +1198,10 @@ int main(int argc,char *argv[])
 	serv_addr.sin_port = htons(SERV_PORT);
 	serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
+	int num = 1;
+	int length = sizeof(num);
+	setsockopt(sock_fd,SOL_SOCKET,SO_REUSEADDR,&num,length);
+
 	//将套接字绑定到本地端口
 	if(bind(sock_fd,(struct sockaddr *)&serv_addr,sizeof(struct sockaddr_in)) < 0) {
 			perror("bind:");
