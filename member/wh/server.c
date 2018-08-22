@@ -80,10 +80,10 @@ void Quit(request buf)
 
 	//改变用户信息表中此用户状态
 	memset(query_str,0,200);
-	sprintf(query_str,"update userinfo set state=0  fd=0 where name='%s'",buf.send_user);
-	mysql_real_query(&mysql,query_str,strlen(query_str));
-
-
+	sprintf(query_str,"update userinfo set state=0   where name='%s'",buf.send_user);
+	int rc = mysql_real_query(&mysql,query_str,strlen(query_str));
+	if(rc != 0)
+		printf(" %s\n",mysql_error(&mysql));
 }
 
 //处理发送消息时对方离线的问题
@@ -746,7 +746,9 @@ void View_grecord(request buf,b_data *back_data)
 	memset(query_str,0,200);
 	sprintf(query_str,"select * from relationinfo where name1='%s' and name2='%s'",buf.send_user,buf.recv_user);
 	mysql_real_query(&mysql,query_str,strlen(query_str));
+	puts("111");
 	res = mysql_store_result(&mysql);
+	puts("222");
 	row = mysql_num_rows(res);
 	
 	printf("row = %d\n",row);
@@ -795,7 +797,7 @@ void View_record(request buf,b_data *back_data)
 
 	//判断双方是否为好友
 	memset(query_str,0,200);
-	sprintf(query_str,"select * from relationinfo where (name1='%s' and name2='%s') or (name1='%s' and name2='%s'",buf.send_user,buf.recv_user,buf.recv_user,buf.send_user);
+	sprintf(query_str,"select * from relationinfo where (name1='%s' and name2='%s') or (name1='%s' and name2='%s')",buf.send_user,buf.recv_user,buf.recv_user,buf.send_user);
 	mysql_real_query(&mysql,query_str,strlen(query_str));
 	res = mysql_store_result(&mysql);
 	row = mysql_num_rows(res);
@@ -812,13 +814,14 @@ void View_record(request buf,b_data *back_data)
 	memset(query_str,0,strlen(query_str));
 	sprintf(query_str,"select * from recordinfo where send_user='%s' or recv_user='%s'",name1,name1);
 	rc = mysql_real_query(&mysql,query_str,strlen(query_str));
-	if(rc != 0) {
-		printf("error:%s",mysql_error(&mysql));
-	}
-
 	res = mysql_store_result(&mysql);
 	row = mysql_num_rows(res);
-	fields = mysql_num_fields(res);
+	printf("row = %d\n",row);
+	if(row == 0) {
+		back_data->cnt = 1;
+		return;
+	}
+
 	while((rows = mysql_fetch_row(res))) {
 			if(strcmp(rows[0],name1) == 0 && strcmp(rows[1],name2) == 0) {
 				strcpy(back_data->ar[count].send_user,rows[0]);
