@@ -310,25 +310,6 @@ void process(char *str, int socket)
 	else if(strncmp(str, "~", 1) == 0)		       //发送消息
 		send_message(str, socket);
 
-	/*接收错误消息*/
-	else
-	{
-		int count = 0;
-		char rest[200] = {0};
-		int len = 0, recv_length = 200;
-		while(len = recv(socket, rest, recv_length, 0))
-		{
-			if(count == 200)
-				break;
-			else
-			{
-				count += len;
-				recv_length -= len;
-			}
-		}
-		if(len < 0)
-			my_err("recv", __LINE__);
-	}
 }
 
 
@@ -1827,7 +1808,7 @@ int main(void)
 			/*处理用户发送的消息*/
 			else
 			{
-				while( (flag = recv(fd, readbuf, recv_length, 0)) )
+				while( (flag = recv(fd, &readbuf[count], recv_length, 0)) )
 				{
 					printf("flag = %d\n", flag);
 					count += flag;
@@ -1836,18 +1817,19 @@ int main(void)
 					else
 						recv_length -= flag;
 				}
+				/*
 				if(flag < 0)
 					my_err("recv", __LINE__);
+				*/
 				printf("recv: %s\n", readbuf);
 				/*recv 返回0 套接字断开连接，将其从句柄中删除*/
-				if(flag == 0)
+				if(flag <= 0)
 				{
 					printf("%d用户断开连接\n", fd);
 					rm_socket(fd);
 					epoll_ctl(epfd, EPOLL_CTL_DEL, fd, &max_ev[i]);
 					close(fd);            //关闭文件描述符
 				}
-
 				else
 				{
 					pool_add_worker((process), readbuf, fd);
