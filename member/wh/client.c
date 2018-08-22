@@ -35,7 +35,6 @@ void *fback(void *arg)
 		if((length= recv(conn_fd,((char *)&back_data + num),sizeof(back_data) - num ,0)) < 0) {
 			perror("recv");
 		}
-		printf("length = %d\n",length);
 		num+=length;
 		if(num == sizeof(b_data)) {						//确保接收到完整的结构体
 			if(back_data.type == 431)	{					//接收到好友申请
@@ -298,7 +297,7 @@ void Friend_Manage(int fd)
 							if(strcmp(back_data.ar[i].send_user,user) == 0)
 								printf("%50s:%s\n",back_data.ar[i].data,user);
 							else
-								printf("%s:%-50s\n",back_data.ar[i].recv_user,back_data.ar[i].data);
+								printf("%s:%-50s\n",friend_name,back_data.ar[i].data);
 						}
 						break;
 					}
@@ -316,7 +315,7 @@ void Friend_Manage(int fd)
 
 				//发送消息
 				printf("1.发送消息\n2.发送文件\nq.退出\n");
-				strcpy(friend,buf.recv_user);			//设置正在聊天的好友
+				strcpy(friend,friend_name);			//设置正在聊天的好友
 				while(getchar() != '\n');
 				while(scanf("%d",&choice2) && choice2 != 'q') {
 					switch(choice2) {
@@ -395,8 +394,8 @@ void Friend_Manage(int fd)
 							break;
 					}
 					system("clear");
+					/*
 					//显示聊天记录
-					memset(friend,0,20);
 					strcpy(buf.send_user,friend_name);
 					buf.type = 0250;
 					strcpy(buf.send_user,user);
@@ -412,7 +411,7 @@ void Friend_Manage(int fd)
 						if(count == 1 && back_data.ar[0].data[0] != '\0') {
 							for(i = 0;back_data.ar[i].data[0] != '\0';i++) {
 								if(strcmp(back_data.ar[i].send_user,user) == 0)
-									printf("%50s:%s\n",back_data.ar[i].data,user);
+									printf("%50s:%s\n",back_data.ar[i].data,back_data.ar[i].send_user);
 								else
 									printf("%s:%-50s\n",back_data.ar[i].recv_user,back_data.ar[i].data);
 							}
@@ -421,9 +420,8 @@ void Friend_Manage(int fd)
 						else if(count == 1 && back_data.ar[0].data[0] == '\0')
 							break;
 					}
+					*/
 	
-	
-
 					printf("1.发送消息\n2.发送文件\nq.退出\n");
 				}
 				memset(friend,0,20);				//将正在聊天的好友置0
@@ -590,10 +588,21 @@ void News_Manage(int fd)
 
 							buf.flag = 1;
 
+							count = 0;
 							//初始化反馈结构体和接收反馈标志
 							memset(&back_data,0,sizeof(b_data));
-							if(send(fd,&buf,sizeof(buf),0) == sizeof(buf))
-								printf("对方已加入\n");
+							send(fd,&buf,sizeof(buf),0);
+							
+							while(1) {
+								if(count == 1 && back_data.cnt == 1) {
+									printf("对方已加入\n");
+									break;
+								}
+								else if(count == 1 && back_data.cnt == 0) {
+									printf("错误\n");
+									break;
+								}
+							}
 						}
 						else
 							printf("已拒绝\n");

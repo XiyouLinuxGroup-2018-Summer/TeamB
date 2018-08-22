@@ -373,7 +373,9 @@ void Delete_Group(request buf,b_data *back_data)
 			New_offline(auf,0);
 			continue;
 		}
-		
+	
+		//发送成功，反馈值置于1
+		back_data->cnt = 1;
 		
 		send(get_fd(rows[0]),&auf,sizeof(b_data),0);
 	}
@@ -384,8 +386,6 @@ void Delete_Group(request buf,b_data *back_data)
 	if(rc != 0)
 		printf("%s\n",mysql_error(&mysql));
 	
-	//发送成功，反馈值置于1
-	back_data->cnt = 1;
 }		
 
 //处理退出群聊请求
@@ -550,18 +550,19 @@ void Add_Group(request buf,b_data *back_data)
 	int row;
 	char query_str[200];					//存放mysql语句
 	int recv_fd;
-	//判断是否在群聊里面
-	memset(query_str,0,strlen(query_str));
-	sprintf(query_str,"select * from relationinfo where name1='%s' and name2='%s'",buf.send_user,buf.recv_user);
-	rc = mysql_real_query(&mysql,query_str,strlen(query_str));
-	res = mysql_store_result(&mysql);
-	row = mysql_num_rows(res);
-
-	if(row != 0) {
-		back_data->cnt = 0;					//说明已经在群里了
-		return;	
-	}
+	
 	if(buf.flag == 0) {							//第一次提交申请
+		//判断是否在群聊里面
+		memset(query_str,0,strlen(query_str));
+		sprintf(query_str,"select * from relationinfo where name1='%s' and name2='%s'",buf.send_user,buf.recv_user);
+		rc = mysql_real_query(&mysql,query_str,strlen(query_str));
+		res = mysql_store_result(&mysql);
+		row = mysql_num_rows(res);
+
+		if(row != 0) {
+			back_data->cnt = 0;					//说明已经在群里了
+			return;	
+		}
 		//找出所有管理员和群主
 		memset(query_str,0,strlen(query_str));
 		sprintf(query_str,"select * from relationinfo where name2='%s'",buf.recv_user);
@@ -587,8 +588,9 @@ void Add_Group(request buf,b_data *back_data)
 					New_offline(auf,0);
 					return;
 				}
-
-				send(get_fd(rows[0]),&auf,sizeof(b_data),0);	
+				
+				printf("send:%s recv:%s data:%s\n",auf.ar[0].send_user,auf.ar[0].recv_user,auf.ar[0].data);
+				send(get_fd(auf.ar[0].recv_user),&auf,sizeof(b_data),0);	
 
 			}
 			//发送成功，反馈值置1
@@ -601,9 +603,11 @@ void Add_Group(request buf,b_data *back_data)
 	if(buf.flag == 1) {
 		//在关系信息表中加入
 		memset(query_str,0,strlen(query_str));
+		printf("s-%s r-%s d-%s\n",buf.send_user,buf.recv_user,buf.data);
 		sprintf(query_str,"insert into relationinfo(name1,name2,power) values('%s','%s',%d)",buf.send_user,buf.data,3);
-		mysql_real_query(&mysql,query_str,strlen(query_str));
-
+		int rc = mysql_real_query(&mysql,query_str,strlen(query_str));
+		if(rc != 0)
+			printf("%s\n",mysql_error(&mysql));
 		res = mysql_store_result(&mysql);
 		
 		
@@ -623,6 +627,7 @@ void Add_Group(request buf,b_data *back_data)
 		}	
 
 		send(get_fd(buf.send_user),&auf,sizeof(b_data),0);
+		back_data->cnt = 1;
 		return;
 	}
 }
@@ -637,19 +642,19 @@ void Add_Friend(request buf,b_data * back_data)
 	int row;
 	char query_str[200];					//存放mysql语句
 	int recv_fd;
-	//判断双方是否为好友
-	memset(query_str,0,strlen(query_str));
-	sprintf(query_str,"select * from relationinfo where (name1='%s' and name2='%s') or (name1='%s' and name2='%s')",buf.send_user,buf.recv_user,buf.recv_user,buf.send_user);
-	rc = mysql_real_query(&mysql,query_str,strlen(query_str));
-	res = mysql_store_result(&mysql);
-	row = mysql_num_rows(res);
-	if(row != 0) {
-		back_data->cnt = 0;					//说明双方已经是好友了
-		return;	
-	}
+	
 
 	if(buf.flag == 0) {
-
+		//判断双方是否为好友
+		memset(query_str,0,strlen(query_str));
+		sprintf(query_str,"select * from relationinfo where (name1='%s' and name2='%s') or (name1='%s' and name2='%s')",buf.send_user,buf.recv_user,buf.recv_user,buf.send_user);
+		rc = mysql_real_query(&mysql,query_str,strlen(query_str));
+		res = mysql_store_result(&mysql);
+		row = mysql_num_rows(res);
+		if(row != 0) {
+			back_data->cnt = 0;					//说明双方已经是好友了
+			return;	
+		}
 		//处理待发送的消息
 		back_data->cnt = 1;
 
@@ -1144,7 +1149,7 @@ void *handle_all(void *fd)					//int fd
 					break;
 				case 0330:
 					//处理添加群请求
-					printf("Add_group%s %s\n",buf.send_user,buf.recv_user);
+					printf("Add_group%s %s %d %s\n",buf.send_user,buf.recv_user,buf.flag,buf.data);
 					memset(&back_data,0,sizeof(b_data));
 					Add_Group(buf,&back_data);
 					send(conn_fd,&back_data,sizeof(b_data),0);
@@ -1173,10 +1178,11 @@ void *handle_all(void *fd)					//int fd
 
 				case 0200:
 					//处理发送消息请求
-					printf("Send_message:%s %s\n",buf.send_user,buf.recv_user);
+					printf("Send_message:%s %s %s\n",buf.send_user,buf.recv_user,buf.data);
 					memset(&back_data,0,sizeof(b_data));
 					Send_message(buf,&back_data);
 					send(conn_fd,&back_data,sizeof(b_data),0);
+					break;
 				case 0300:
 					//处理发送群聊消息请求
 					printf("Send_gmessage:%s  %s\n",buf.send_user,buf.recv_user);
