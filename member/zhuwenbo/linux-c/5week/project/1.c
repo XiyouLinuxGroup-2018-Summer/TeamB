@@ -600,7 +600,7 @@ void *send_message(void *arg)
 				CLOSE
 				if(send(socket, message, send_length, 0) < 0)
 					my_err("send", __LINE__);
-				usleep(10000);
+				usleep(50000);
 			}
 			else if(s == '5')
 			{
@@ -616,7 +616,7 @@ void *send_message(void *arg)
 				CLOSE
 				if(send(socket, message, send_length, 0) < 0)
 					my_err("send", __LINE__);
-				usleep(10000);
+				usleep(50000);
 			}
 			else if(s == '6')
 			{
@@ -673,7 +673,7 @@ void *send_message(void *arg)
 				strcat(message, group_name);
 				if(send(socket, message, send_length, 0) < 0)
 				my_err("send", __LINE__);
-				usleep(10000);
+				usleep(50000);
 			}
 			else if(w == '4')
 			{
@@ -720,7 +720,7 @@ void *send_message(void *arg)
 				CLOSE
 				if(send(socket, message, send_length, 0) < 0)
 					my_err("send", __LINE__);
-				usleep(10000);
+				usleep(50000);
 			}
 			else if(w == '6')
 			{
@@ -746,7 +746,7 @@ void *send_message(void *arg)
 				CLOSE
 				if(send(socket, message, send_length, 0) < 0)
 					my_err("send", __LINE__);
-				usleep(10000);	
+				usleep(50000);	
 			}
 			else if(w == '8')
 			{

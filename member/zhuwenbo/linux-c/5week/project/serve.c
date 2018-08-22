@@ -1799,7 +1799,6 @@ int main(void)
 	/*给epoll中的事件赋值*/
 	struct epoll_event max_ev[64];
 	/*监听服务器*/
-message = g:demaxiya
 	serv_ev.events = EPOLLIN;
 	serv_ev.data.fd = serv_fd;
 	if(epoll_ctl(epfd, EPOLL_CTL_ADD, serv_fd, &serv_ev) < 0)
