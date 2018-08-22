@@ -30,11 +30,13 @@ void *fback(void *arg)
 {
 	int conn_fd = *(int *)arg;	
 	int num = 0;
+	int length = 0;
 	while(1) {
-		if((num += recv(conn_fd,&back_data,sizeof(back_data),0)) < 0) {
+		if((length= recv(conn_fd,((char *)&back_data + num),sizeof(back_data) - num ,0)) < 0) {
 			perror("recv");
 		}
-		printf("send_user :%s\n recv_user:%s\nback_data.data:%s\ndata.cnt:%d\n",back_data.ar[0].send_user,back_data.ar[0].recv_user,back_data.ar[0].data,back_data.cnt);
+		printf("length = %d\n",length);
+		num+=length;
 		if(num == sizeof(b_data)) {						//确保接收到完整的结构体
 			if(back_data.type == 431)	{					//接收到好友申请
 				if(back_data.flag == 0)	{					//提交的申请
