@@ -24,6 +24,9 @@ char online_name[20];                //当前用户在和谁聊天
 char file_name[20];                  //发送的文件名
 char own_name[20];                   //当前登录的用户名
 
+int fd_read;                         //读取文件描述符
+int fd_write;                        //写入文件描述符
+
 typedef struct BOX
 {
 	char name[20];
@@ -48,9 +51,7 @@ box *add(box *head,	char *name, char *message)
 	box *add = (box *)malloc(sizeof(box));
 	strcpy(add->name, name);
 	strcpy(add->message, message);
-	printf("name %s message %s\n", add->name, add->message);
 	box *temp = head;
-	//temp = (box *)malloc(sizeof(box));
 	while( temp->next != NULL)
 		temp = temp->next;
 	temp->next = add;
@@ -515,7 +516,7 @@ void *send_message(void *arg)
 	char q;
 	while(1)
 	{
-	//	system("clear");
+		system("clear");
 		printf("1 好友管理\n");
 		printf("2 群管理\n");
 		printf("3 文件发送\n");
@@ -538,6 +539,7 @@ void *send_message(void *arg)
 			scanf("%c", &s);
 			if(s == '1')
 			{
+				system("clear");
 				char message[200] = "~";
 				printf("请输入想选择的聊天对象\n");
 				char name[20] = {0};
@@ -547,6 +549,9 @@ void *send_message(void *arg)
 				strcat(message, name);
 				strcat(message, ":");
 				printf("输入q退出\n");
+				BLUE
+				printf("--------------------聊天界面--------------------\n");
+				CLOSE
 				while(1)
 				{
 					char send_message[200] = {0};
@@ -668,9 +673,11 @@ void *send_message(void *arg)
 				strcat(message, group_name);
 				if(send(socket, message, send_length, 0) < 0)
 				my_err("send", __LINE__);
+				usleep(10000);
 			}
 			else if(w == '4')
 			{
+				system("clear");
 				char message[200] = "~g:";
 				char group_name[20] = {0};
 				char send_message[200] = {0};
@@ -682,6 +689,9 @@ void *send_message(void *arg)
 				strcat(message, group_name);
 				strcat(message, ":");
 				printf("输入q退出群聊\n");
+				BLUE
+				printf("-------------------------聊天界面--------------------\n");
+				CLOSE
 				while(1)
 				{
 					strcpy(send_message, message);
@@ -706,7 +716,7 @@ void *send_message(void *arg)
 				strcat(message, group_name);
 				system("clear");
 				BLUE
-				printf("----------群%s的消息记录为--------------\n", group_name);
+				printf("---------------群%s的消息记录为-------------------\n", group_name);
 				CLOSE
 				if(send(socket, message, send_length, 0) < 0)
 					my_err("send", __LINE__);
@@ -766,27 +776,36 @@ void *send_message(void *arg)
 				printf("输入设置的用户名：");
 				scanf("%s", name);
 				strcat(message, name);
-				printf("message = %s\n", message);
+	//			printf("message = %s\n", message);
 				if(send(socket, message, send_length, 0) < 0)
 					my_err("send", __LINE__);
 			}
 			else if(w == 'q')
 				break;
 		}
-		while(q == '3')
+		if(q == '3')
 		{
-			break;
+			char message[200] = {0};;
+			printf("请输入要发送的用户名：");
+			char name[20];
+			scanf("%s", name);
+			printf("请输入要发送的文件名: ");
+			char file[20];
+			scanf("%s", file);
+			strcpy(file_name, file);
+			sprintf(message, "~name:%s:%s", name, file);
+	//		printf("message = %s\n", message);
+			if(send(socket, message, send_length, 0) < 0)
+				my_err("send", __LINE__);
 		}
 		if(q == '4')
 		{	
 			box *temp;
 			temp = (box *)malloc(sizeof(box));
-			printf("lalala\n");
 			box *pre = head;
 			box *rev = head->next;
 			while(rev != NULL)
 			{
-				printf(".....\n");
 				if(strcmp(rev->name, own_name) == 0)
 				{
 					temp = rev;
@@ -799,11 +818,10 @@ void *send_message(void *arg)
 					rev = rev->next;
 					continue;
 				}
-				printf("name %s message %s\n", temp->name, temp->message);
 				if(strncmp(temp->message, "^:", 2) == 0)
 				{
 					char str[200];
-					char file_name[20] = {0};
+					char file[20] = {0};
 					char user_name[20] = {0};
 					char message[200] = {0};
 					strcpy(str, temp->message);
@@ -817,16 +835,52 @@ void *send_message(void *arg)
 							j = 0;
 						}
 						if(count == 1)
-							file_name[j++] = str[i];
-						if(count == 2)
 							user_name[j++] = str[i];
+						if(count == 2)
+							file[j++] = str[i];
 						if(count == 3)
 						{
 							strcpy(message, &str[i]);
 							break;
 						}
 					}
-					printf("是否同意 y/n: ");
+					printf("%s\n", message);
+					printf("是否同意接收 y/n: ");
+					char flag;
+					while(1)
+					{
+						getchar();
+						scanf("%c", &flag);
+						if(flag == 'y')
+						{
+							char message[200] = "~$agree:";
+							strcat(message, user_name);
+							strcat(message, ":");
+							strcat(message, own_name);
+							strcpy(file_name, file);
+						//	printf("message = %s\n", message);
+							if(creat(file_name, 0644) < 0)
+								my_err("creat_file", __LINE__);
+							if( (fd_write = open(file_name, O_RDWR)) < 0)
+								my_err("write", __LINE__);
+							if(send(socket, message, send_length, 0) < 0)
+								my_err("send", __LINE__);
+							break;	
+						}
+						else if(flag == 'n')
+						{
+							char message[200] = "~$dis:";
+							strcat(message, user_name);
+							strcat(message, ":");
+							strcat(message, own_name);
+						//	printf("message = %s\n", message);
+							if(send(socket, message, send_length, 0) < 0)
+								my_err("send", __LINE__);
+							break;
+						}
+						else
+							printf("请输入正确的命令\n");
+					}
 				}
 				else if(strncmp(temp->message, "add_group", 9) == 0)
 				{
@@ -856,7 +910,6 @@ void *send_message(void *arg)
 						}
 						strcpy(online_name, group_name);
 						strcat(message, group_name);
-						printf("%s\n", temp->message);
 						printf("1 回复\n");
 						printf("2 不予理踩\n");
 						getchar();
@@ -864,8 +917,12 @@ void *send_message(void *arg)
 						scanf("%c", &flag);
 						if(flag == '1')
 						{
+							system("clear");
 							printf("输入消息\n");
 							printf("q退出\n");
+							BLUE
+							printf("---------------------------聊天界面-----------------\n");
+							CLOSE
 							while(1)
 							{
 								char send_message[200] = {0};
@@ -875,6 +932,7 @@ void *send_message(void *arg)
 								scanf("%[^\n]", temp);
 								if(strcmp(temp, "q") == 0)
 									break;
+								strcat(send_message, ":");
 								strcat(send_message, temp);
 								if(send(socket, send_message, send_length, 0) < 0)
 									my_err("send", __LINE__);
@@ -914,12 +972,16 @@ void *send_message(void *arg)
 							scanf("%c", &flag);
 							if(flag == '1')
 							{
+								system("clear");
 								char message[200] = {0};
 								char send_message[200] = {0};
 								char temp1[200] = {0};
 								sprintf(message, "~%s:", name);
 								printf("发送消息\n");
 								printf("q退出\n");
+								BLUE
+								printf("---------------------------聊天界面-----------------\n");
+								CLOSE
 								while(1)
 								{
 									getchar();
@@ -943,6 +1005,8 @@ void *send_message(void *arg)
 				}
 			}	
 		}
+		if(q =='q')
+			exit(0);
 	}
 }
 
@@ -1011,6 +1075,59 @@ void *recv_message(void *arg)
 		/*查看群成员*/
 		else if(strncmp(readbuf, "~member:", 8) == 0)
 			watch_member(readbuf);
+		/*同意发送文件*/
+		else if(strncmp(readbuf, "$$:", 3) == 0)
+		{
+			int fd;
+			if( (fd = open(file_name, O_RDONLY)) < 0)
+				my_err("open", __LINE__);
+			char name[20];
+			strcpy(name, &readbuf[3]);
+			char message[200] = {0};
+			char recv_message[200] = {0};
+			char send_message[200] = {0};
+			sprintf(message, "&:%s:", name);
+			int len = strlen(message);
+			int flag;
+			while(1)
+			{
+				strcpy(send_message, message);
+				if( (flag = read(fd, recv_message, 199-len)) < 1 )
+				{
+					break;
+				}
+				else
+				{
+					strcat(send_message, recv_message);
+					send_message[strlen(send_message)] = '\0';
+					if(send(socket, send_message, send_length, 0) < 0)
+					{
+						my_err("send", __LINE__);
+					}
+					usleep(10000);
+				}
+				memset(recv_message, 0, sizeof(recv_message));
+				memset(send_message, 0, sizeof(send_message));
+			}
+			close(fd);
+		}
+		/*接收文件内容*/
+		else if(strncmp(readbuf, "&:", 2) == 0)
+		{
+			char write_message[200] = {0};
+			strcpy(write_message, &readbuf[2]);
+			if( write(fd_write, write_message, strlen(write_message)) < 0)
+				my_err("write", __LINE__);
+		}
+		/*拒绝接收*/
+		else if(strncmp(readbuf, "**", 2) == 0)
+		{
+			char name[20];
+			strcpy(name, &readbuf[3]);
+			BLUE
+			printf("%s refuse your file\n", name);
+			CLOSE
+		}
 		/*发送群消息*/
 		else if(strncmp(readbuf, "群", 2) == 0)
 		{
@@ -1039,8 +1156,8 @@ void *recv_message(void *arg)
 		else if(strncmp(readbuf, "^:", 2) == 0)
 		{
 			printf("有人给你发送一个文件，进入消息通知进行接收\n");
-			
-			
+			/*添加到消息队列*/
+			head = add(head, own_name, readbuf);
 		}
 		/*私聊*/
 		else
@@ -1082,7 +1199,7 @@ int main(int argc, char *argv[])
 	char message1[1024] = {0};
 	struct sockaddr_in serv_addr;
 	socklen_t len;
-	int select, flag;
+	int flag;
 	if( (cli_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
 		my_err("socket", __LINE__);
 
@@ -1094,27 +1211,35 @@ int main(int argc, char *argv[])
 	len = sizeof(struct sockaddr_in);
 	if(connect(cli_fd, (struct sockaddr *)&serv_addr, len) < 0)
 		my_err("connect", __LINE__);
-	printf("请输入1(注册)，2(登录)或者3(找回密码)\n");
-	scanf("%d", &select);
-	switch(select)
+	char select;
+	while(1)
 	{
-		case 1:
+		printf("请输入1(注册)，2(登录)或者3(找回密码)\n");
+		scanf("%c", &select);
+		system("clear");
+		if(select == '1')
+		{
 			while(!user_login(cli_fd))
 				printf("注册失败，请重新注册\n");
 			while(!user_enter(cli_fd))	
 				printf("登录失败请重新登录\n");
 			break;
-		case 2:
+		}
+		else if(select == '2')
+		{
 			while(!user_enter(cli_fd))
 				printf("登录失败，请重新登录\n");
 			break;
-		case 3:
+		}
+		else if(select == '3')
+		{
 			while(!find_passwd(cli_fd))
 				printf("查找失败，请重新查找\n");
 			while(!user_enter(cli_fd))	
 				printf("登录失败请重新登录\n");
 			break;
-		default:
+		}
+		else
 			printf("小伙子请输入正确的命令\n");
 	}
 
@@ -1123,6 +1248,5 @@ int main(int argc, char *argv[])
 	pthread_create(&tid1, NULL, send_message, (void *)&cli_fd);
 	pthread_create(&tid2, NULL, recv_message, (void *)&cli_fd);
 	pthread_join(tid1, (void *)&status);
-	pthread_join(tid2, (void *)&status);
 }
 

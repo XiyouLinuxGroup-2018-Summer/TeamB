@@ -82,6 +82,12 @@ void watch_member(char *str, int socket);
 void set_ad(char *str, int socket);
 /*踢人*/
 void del_member(char *str, int socket);
+/*接收文件*/
+void recv_filename(char *str, int socket);
+/*是否同意接收*/
+void agg_file(char *str, int socket);
+/*发送文件*/
+void send_file(char *str, int socket);
 
 
 /*任务结构*/
@@ -291,6 +297,15 @@ void process(char *str, int socket)
 
 	else if(strncmp(str, "~del:", 5) == 0)         //删除群成员
 		del_member(str, socket);
+	
+	else if(strncmp(str, "~name:", 6) == 0) 	   //文件发送
+		recv_filename(str, socket);
+	
+	else if(strncmp(str, "~$", 2) == 0)            //是否同意接收
+		agg_file(str, socket);
+
+	else if(strncmp(str, "&:", 2) == 0)            //发送文件
+		send_file(str, socket);
 
 	else if(strncmp(str, "~", 1) == 0)		       //发送消息
 		send_message(str, socket);
@@ -398,15 +413,28 @@ void user_enter(char *str, int socket)
 	char *sql_online = "SELECT username, socket from online";
 	MYSQL_RES *tr = NULL;
 	MYSQL_ROW hh;
-	if( mysql_real_query(con, sql_online, strlen(sql_online)) )
-		my_err("online", __LINE__);
-	tr = mysql_store_result(con);
 
 	while(row = mysql_fetch_row(res))
 	{
 		/*登录成功*/
 		if(strcmp(row[0], name) == 0 && strcmp(row[1], passwd) == 0)
 		{
+		
+		/*判断用户是否已经登录*/
+		
+			if( mysql_real_query(con, sql_online, strlen(sql_online)) )
+				my_err("online", __LINE__);
+			tr = mysql_store_result(con);
+			while(hh = mysql_fetch_row(tr))
+			{
+				if(strcmp(hh[0], name) == 0)
+				{
+					strcpy(flag, "fault");
+					if(send(socket, flag, send_length, 0) < 0)
+						my_err("send", __LINE__);
+					return;
+				}
+			}
 			/*登录成功后将套接字存入实时在线用户库中*/
 			char sql_socket[150] = {0};
 			sprintf(sql_socket, "INSERT INTO online(username, socket) values('%s', '%d')", row[0], socket);
@@ -420,6 +448,9 @@ void user_enter(char *str, int socket)
 			{
 				if(strcmp(name, rec[0]) == 0)
 				{
+					if( mysql_real_query(con, sql_online, strlen(sql_online)) )
+						my_err("online", __LINE__);
+					tr = mysql_store_result(con);
 					while(hh = mysql_fetch_row(tr))
 					{
 						if(strcmp(hh[0], rec[1]) == 0)
@@ -434,6 +465,9 @@ void user_enter(char *str, int socket)
 				}
 				else if(strcmp(name, rec[1]) == 0)
 				{
+					if( mysql_real_query(con, sql_online, strlen(sql_online)) )
+						my_err("online", __LINE__);
+					tr = mysql_store_result(con);
 					while(hh = mysql_fetch_row(tr))
 					{
 						if(strcmp(hh[0], rec[0]) == 0)
@@ -451,7 +485,6 @@ void user_enter(char *str, int socket)
 			/*用户上线，查询是否有离线消息 如果有发送离线消息*/
 			while(ro = mysql_fetch_row(r))
 			{
-				printf("-----\n");
 				if(strcmp(name, ro[1]) == 0)
 				{
 					char *off = "off:";
@@ -1260,7 +1293,6 @@ void send_group(char *str, int socket)
 		{
 			if(strcmp(send_name, row[1]))               //判断是否是发消息人自己
 			{
-				printf("////\n");
 				/*向群成员发送消息*/
 				if( mysql_real_query(con, sql_select, strlen(sql_select)) )
 					my_err("select", __LINE__);
@@ -1326,7 +1358,7 @@ void group_his(char *str, int socket)
 			{
 				char message[200] = {0};
 				char *p = "                                     ";
-				sprintf(message, "g_his:%s%s send : %s", p, row[1], row[2]);
+				sprintf(message, "g_his:%s%s : %s", p, row[1], row[2]);
 				printf("g_his = %s\n", message);
 				if(send(socket, message, send_length, 0) < 0)
 					my_err("send", __LINE__);
@@ -1334,7 +1366,7 @@ void group_his(char *str, int socket)
 			else
 			{
 				char message[200] = {0};
-				sprintf(message, "g_his:%s send :%s", name, row[2]);
+				sprintf(message, "g_his:%s :%s", name, row[2]);
 				printf("message = %s\n", message);
 				if(send(socket, message, send_length, 0) < 0)
 					my_err("send", __LINE__);
@@ -1597,10 +1629,144 @@ void del_member(char *str, int socket)
 }
 
 /*发送文件*/
+void recv_filename(char *str, int socket)
+{
+	int i, j = 0, count = 0;
+	char file_name[20] = {0};         //文件名
+	char send_name[20] = {0};         //发送文件的名字
+	char recv_name[20] = {0};		  //接收文件的名字
+	int sock_fd = 0;                      //接收用户的套接字
+	for(i = 0; str[i] != '\0'; i++)
+	{
+		if(str[i] == ':' && count < 2)
+			count++, i++;
+		if(count == 1)
+			recv_name[j++] = str[i];
+		if(count == 2)
+		{
+			strcpy(file_name, &str[i]);
+			break;
+		}
+	}
+	char *sql_select = "SELECT username, socket from online";
+	if( mysql_real_query(con , sql_select, strlen(sql_select)) )
+		my_err("select", __LINE__);
+	res = mysql_store_result(con);
+	count = 0;
+	while(row = mysql_fetch_row(res))
+	{
+		if(socket == atoi(row[1]))
+		{
+			strcpy(send_name, row[0]);
+			count++;
+		}
+		if(strcmp(recv_name, row[0]) == 0)
+		{
+			sock_fd = atoi(row[1]);
+			count++;
+		}
+		if(count == 2)
+			break;
+	}
+	printf("filename = %s sendname = %s recvname = %s\n", file_name, send_name, recv_name);
+	char message[200] = {0};
+	sprintf(message, "^:%s:%s: %s send to you a file , name is %s", send_name, file_name, send_name, file_name);
+	printf("message = %s\n", message);
+	if(sock_fd > 0)
+	{
+		if(send(sock_fd, message, send_length, 0) < 0)
+			my_err("send", __LINE__);
+	}
+}
+
+/*是否同意接收*/
+void agg_file(char *str, int socket)
+{
+	char send_name[20] = {0};
+	char recv_name[20] = {0};
+	char message[200] = {0};
+	int i, j = 0, count = 0;
+	int sock_fd;
+	for(i = 0; str[i] != '\0'; i++)
+	{
+		if(str[i] == ':' && count < 2)
+			i++, count++;
+		if(count == 1)
+			send_name[j++] = str[i];
+		if(count == 2)
+		{
+			strcpy(recv_name, &str[i]);
+			break;
+		}
+	}
+	char *sql_select = "SELECT username, socket from online";
+	if( mysql_real_query(con, sql_select, strlen(sql_select)) )
+		my_err("select", __LINE__);
+	res = mysql_store_result(con);
+	while(row = mysql_fetch_row(res))
+	{
+		if(strcmp(send_name, row[0]) == 0)
+		{
+			sock_fd = atoi(row[1]);
+			break;
+		}
+	}
+	if(sock_fd > 0)
+	{
+		if(strncmp(str, "~$agree", 7) == 0)
+		{
+			sprintf(message, "$$:%s", recv_name);
+			if(send(sock_fd, message, send_length, 0) < 0)
+				my_err("send", __LINE__);
+		}
+		else
+		{
+			sprintf(message, "**:%s", recv_name);
+			if(send(sock_fd, message, send_length, 0) < 0)
+				my_err("send", __LINE__);
+		}
+	}
+}
+
+/*发送文件*/
 void send_file(char *str, int socket)
 {
-	
+	char message[200] = "&:";
+	char name[20] = {0};
+	int i, j = 0, count = 0;
+	int sock_fd = 0;
+	for(i = 0; str[i] != '\0'; i++)
+	{
+		if(str[i] == ':')
+			i++, count++;
+		if(count == 1)
+			name[j++] = str[i];
+		if(count == 2)
+		{
+			strcat(message, &str[i]);
+			break;
+		}
+	}
+	printf("name = %s message = %s\n", name, message);
+	char *sql_select = "SELECT username, socket from online";
+	if( mysql_real_query(con, sql_select, strlen(sql_select)) )
+		my_err("select", __LINE__);
+	res = mysql_store_result(con);
+	while(row = mysql_fetch_row(res))
+	{
+		if(strcmp(name, row[0]) == 0)
+		{
+			sock_fd = atoi(row[1]);
+			break;
+		}
+	}
+	if(sock_fd > 0)
+	{
+		if(send(sock_fd, message, send_length, 0) < 0)
+			my_err("send_File", __LINE__);
+	}
 }
+
 
 
 int main(void)
