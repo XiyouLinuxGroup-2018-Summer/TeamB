@@ -184,7 +184,7 @@ int main(int argc,char *argv[])
 						break;
 					}
 					else if(count == 1 && back_data.cnt == 0) {
-						puts("注册失败,该用户已存在\n");
+						puts("注册失败\n");
 						break;
 					}
 				}
@@ -362,7 +362,7 @@ void Friend_Manage(int fd)
 							send(fd,&buf,sizeof(buf),0);
 							printf("正在等待对方同意\n");
 							while(1) {
-								printf("#");
+								printf("#\n");
 								sleep(1);
 								if(count == 1 && back_data.cnt == 1) {
 									//开始传输文件
@@ -382,6 +382,10 @@ void Friend_Manage(int fd)
 									}
 									send(fd,&buf,sizeof(buf),0);
 									count = 0;
+								}
+								else if(count == 1 && back_data.cnt == 0) {
+									printf("对方拒绝接收文件\n");
+									break;
 								}
 
 							}
@@ -507,6 +511,7 @@ void News_Manage(int fd)
 	char choice3;
 	char choice4;
 	char friend_name[20];					//存放好友姓名的字符串数组
+	int	num;								//计算通知的数量
 	request buf;
 
 	memset(friend_name,0,20);
@@ -514,12 +519,19 @@ void News_Manage(int fd)
 	printf("1.私聊\n2.群聊\n3.系统通知\n4.文件传输\nq.退出\n");
 	while(scanf("%c",&choice) && choice != 'q') {
 		system("clear");
+		num = 0;
 		switch(choice) {
 			case '1':
 				
 				for(i = 0;i < cnt;i++) {
-					if(cr[i].type == 1) 
+					if(cr[i].type == 1) {
+						num++;
 						printf("%s %s\n",cr[i].send_user,asctime((localtime(&cr[i].time))));
+					}
+				}
+				if(num == 0) {
+					printf("无人跟您发消息\n");
+					break;
 				}
 				printf("1.我要回复\nq.算了懒得回了(退出)\n");
 				//进入私聊界面
@@ -538,10 +550,15 @@ void News_Manage(int fd)
 
 			case '2':
 				for(i = 0;i < cnt;i++) {
-					if(cr[i].type == 2) 
+					if(cr[i].type == 2) {
+						num++;
 						printf("%s %s\n",cr[i].send_user,asctime((localtime(&cr[i].time))));
+					}
 				}
-				
+				if(num == 0) {
+					printf("无人水群\n");
+					break;
+				}
 				
 				break;
 			
@@ -549,6 +566,7 @@ void News_Manage(int fd)
 				//处理所有系统通知和好友请求
 				for(i = 0;i < cnt;i++) {
 					if(cr[i].type == 31 && cr[i].flag == 0) {
+						num++;
 						printf("%s请求加您为好友:(y/n)(第%d条，还有%d条待处理)\n验证消息%s\n",cr[i].send_user,i+1,cnt-i-1,cr[i].data);
 						char c;
 						while(getchar() != '\n');
@@ -609,6 +627,8 @@ void News_Manage(int fd)
 						cr[i].flag = 1;
 					}
 				}
+				if(num == 0)
+					printf("无最新通知\n");
 				break;
 			case '4':
 				while(getchar() != '\n');
@@ -650,12 +670,20 @@ void News_Manage(int fd)
 								}
 							}
 						}
-						else 
+						else {
+							memset(&buf,0,sizeof(buf));
+							buf.type = 0400;
+							buf.flag = 1;
+							buf.size = 1;
+							strcpy(buf.send_user,cr[i].send_user);
+							strcpy(buf.recv_user,cr[i].recv_user);
+							send(fd,&buf,sizeof(buf),0);
 							printf("已拒绝\n");
-					}
+						}
 						default:
 							printf("请输入正确的选项\n");
 							break;
+					}
 		}
 		while(getchar() != '\n');
 		printf("1.私聊\n2.群聊\n3.系统通知\n4.文件传输\nq.退出\n");

@@ -182,9 +182,15 @@ void Send_file(request buf,b_data *back_data)
 		return;
 	}
 	if(buf.flag == 1 && buf.data[0] == '\0') {	
-		//发送同意接收反馈给发送方
-		back_data->cnt = 1;
-		send(get_fd(buf.send_user),back_data,sizeof(b_data),0);
+		//发送接收反馈给发送方
+		if(buf.size == 0) {
+			back_data->cnt = 1;
+			send(get_fd(buf.send_user),back_data,sizeof(b_data),0);
+		}
+		else {
+			back_data->cnt = 0;
+			send(get_fd(buf.send_user),back_data,sizeof(b_data),0);
+		}
 	}
 	else if(buf.flag == 1 && buf.data[0] != '\0') {
 		//将文件内容传输到接收方	
@@ -1041,8 +1047,10 @@ int register_server(request buf)
 		sprintf(query_str,"insert into userinfo values('%s','%s',%d,%d)",buf.send_user,buf.data,fd,0);
 		rc = mysql_real_query(&mysql,query_str,strlen(query_str));
 
-		if(rc != 0) 
+		if(rc != 0) {
+			feedback = 0;
 			printf("注册写入失败\n");
+		}
 		memset(query_str,0,strlen(query_str));
 	}
 	return feedback;	
@@ -1059,11 +1067,12 @@ void *handle_all(void *fd)					//int fd
 	b_data back_data;
 	int conn_fd = *(int *)fd;
 	int ret = 0;
+	int length = 0;
 	while(1) {
-		ret += recv(conn_fd,&buf,sizeof(buf),0);
-		if(ret == 0)
-			pthread_exit(0);
-		else if(ret == sizeof(buf)) {
+		length= recv(conn_fd,((char *)&buf + ret),sizeof(buf) - ret,0);
+		ret+=length;
+
+		if(ret == sizeof(buf)) {
 			ret = 0;
 			switch(buf.type) {
 				case 0100:
