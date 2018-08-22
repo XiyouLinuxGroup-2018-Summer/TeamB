@@ -289,7 +289,7 @@ void process(char *str, int socket)
 	else if(strncmp(str, "~w:", 3) == 0)           //查看群成员
 		watch_member(str, socket);
 
-	else if(strncmp(str, "~w", 2) == 0)            //查看所加入的群
+	else if(strncmp(str, "w", 1) == 0)            //查看所加入的群
 		watch_group(str, socket);
 
 	else if(strncmp(str, "~set:", 5) == 0)         //设置管理员
@@ -1392,7 +1392,7 @@ void watch_group(char *str, int socket)
 			break;
 		}
 	}
-	printf("name = %s\n", name);
+	printf("name nnn = %s\n", name);
 	/*找出该用户所加入的群聊*/
 	char *sql_select = "SELECT group_name, member from groups";
 	if( mysql_real_query(con, sql_select, strlen(sql_select)) )
@@ -1799,6 +1799,7 @@ int main(void)
 	/*给epoll中的事件赋值*/
 	struct epoll_event max_ev[64];
 	/*监听服务器*/
+message = g:demaxiya
 	serv_ev.events = EPOLLIN;
 	serv_ev.data.fd = serv_fd;
 	if(epoll_ctl(epfd, EPOLL_CTL_ADD, serv_fd, &serv_ev) < 0)

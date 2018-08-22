@@ -724,7 +724,7 @@ void *send_message(void *arg)
 			}
 			else if(w == '6')
 			{
-				char message[200] = "~w";
+				char message[200] = "w";
 				system("clear");
 				BLUE
 				printf("----------------加入的群聊为-------------------\n");
