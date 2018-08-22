@@ -129,5 +129,5 @@ void Chat_Friend(int fd);
 void Group_Manage(int fd);
 
 //处理注销请求
-void Quit(int fd);
+void Quit(request buf);
 #endif
