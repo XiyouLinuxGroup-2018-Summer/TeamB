@@ -22,7 +22,7 @@ typedef struct reque{
 	char  data[50];							//请求数据
 	time_t time;							//请求时间
 	int flag;								//是否被处理
-	int size;								//请求数据大小
+	long size;								//请求数据大小
 }request;
 
 //消息记录结构体
@@ -33,7 +33,7 @@ struct record{
 	int type;								//消息性质1,私聊2.群聊3.系统通知4.文件
 	char data[50];							//消息内容
 	int flag;								//是否被处理
-	int size;								//消息大小
+	long size;								//消息大小
 };
 
 
@@ -47,7 +47,7 @@ typedef struct dat{
 	char str[100][20];						//显示所有好友		3
 	struct record ar[50];					//消息记录			4
 	int flag;								//是否被处理
-	int size;								//反馈数据大小
+	long size;								//反馈数据大小
 }b_data;
 
 //根据用户名得到对应的套接字
