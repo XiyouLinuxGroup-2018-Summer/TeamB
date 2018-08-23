@@ -358,15 +358,16 @@ void Friend_Manage(int fd)
 							long num = 0;
 							int cnt = 0;
 							long size = 0;
+							int flag = 0;
 
 							count = 0;
 							memset(&back_data,0,sizeof(back_data));
 							send(fd,&buf,sizeof(buf),0);
 							printf("正在等待对方同意\n");
 							while(1) {
-								if(count == 1 && back_data.cnt == 1) {
+								if((count == 1 && back_data.cnt == 1) ) {
 									//开始传输文件
-									printf("*");
+									
 									memset(&buf,0,sizeof(buf));
 									buf.type = 0400;
 									buf.flag = 1;
@@ -377,7 +378,7 @@ void Friend_Manage(int fd)
 										buf.size = size;
 										if(cnt) {
 											buf.size = 1;
-											buf.fd = -2;
+											buf.fd = -100;
 											strcpy(buf.data,"hello world");
 											send(fd,&buf,sizeof(buf),0);
 											printf("发送完毕\n");
@@ -388,13 +389,14 @@ void Friend_Manage(int fd)
 										}
 										
 									}
-									printf("发送方:%s - data:%s\n",buf.send_user,buf.data);
+									printf("*******************\n");
+									//printf("发送方:%s - data:%s\n",buf.send_user,buf.data);
 									send(fd,&buf,sizeof(buf),0);
 
 									count = 0;
 								}
-
 							}
+
 							break;	
 									
 
@@ -403,7 +405,6 @@ void Friend_Manage(int fd)
 							printf("请输入正确的选项\n");
 							break;
 					}
-					system("clear");
 					/*
 					//显示聊天记录
 					strcpy(buf.send_user,friend_name);
@@ -661,6 +662,7 @@ void News_Manage(int fd)
 							long num = 0;	
 							//根据文件名创建文件并打开
 							int fp = open(filename,O_CREAT | O_APPEND | O_RDWR,0777);
+
 							//开始接收文件
 							while(1) {
 								if(count == 1 && back_data.size == 0) {
@@ -669,13 +671,11 @@ void News_Manage(int fd)
 								}
 
 								else if(count == 1 && back_data.size != 0) {
-									printf("接收方:%s\n",back_data.ar[0].data);
+								//	printf("接收方:%s\n",back_data.ar[0].data);
+									printf("************\n");
 									write(fp,back_data.ar[0].data,back_data.size);
-									count = 0;	
-									printf("#");
-									//接收完这一波数据，发送反馈
-									//请求接收下一波
-									memset(buf.data,0,50);
+									count = 0;
+									//接收完毕反馈给发送方
 									send(fd,&buf,sizeof(buf),0);
 								}
 							}
@@ -690,15 +690,16 @@ void News_Manage(int fd)
 							send(fd,&buf,sizeof(buf),0);
 							printf("已拒绝\n");
 						}
-						default:
-							printf("请输入正确的选项\n");
 							break;
 					}
+				default:
+					printf("请输入正确的选项\n");
+					break;
+					
 		}
 		while(getchar() != '\n');
 		printf("1.私聊\n2.群聊\n3.系统通知\n4.文件传输\nq.退出\n");
 	}
-	system("clear");
 }
 
 //与好友私聊界面
