@@ -355,15 +355,15 @@ void Friend_Manage(int fd)
 							strcpy(buf.send_user,user);
 							buf.flag = 0;
 							buf.size = auf.st_size;
-							int num = 0;
-							
+							long num = 0;
+							int cnt = 0;
+							long size = 0;
+
 							count = 0;
 							memset(&back_data,0,sizeof(back_data));
 							send(fd,&buf,sizeof(buf),0);
 							printf("正在等待对方同意\n");
 							while(1) {
-								printf("#\n");
-								sleep(1);
 								if(count == 1 && back_data.cnt == 1) {
 									//开始传输文件
 									printf("*");
@@ -372,20 +372,26 @@ void Friend_Manage(int fd)
 									buf.flag = 1;
 									strcpy(buf.recv_user,friend_name);
 									strcpy(buf.send_user,user);
-									if((num += read(filed,buf.data,50)) == auf.st_size) {//到末尾结束
-																	//清空请求数据以此作为结束标志
-										memset(buf.data,0,50);
-										strcpy(buf.data,"wanbi");
-										send(fd,&buf,sizeof(buf),0);
-										printf("发送完毕\n");
-										break;
+									if((size= read(filed,buf.data,50)) || cnt) {//到末尾为0
+										num += size;
+										buf.size = size;
+										if(cnt) {
+											buf.size = 1;
+											buf.fd = -2;
+											strcpy(buf.data,"hello world");
+											send(fd,&buf,sizeof(buf),0);
+											printf("发送完毕\n");
+											break;
+										}
+										if(num == auf.st_size) {				//当读到末尾时
+											cnt = 1;
+										}
+										
 									}
+									printf("发送方:%s - data:%s\n",buf.send_user,buf.data);
 									send(fd,&buf,sizeof(buf),0);
+
 									count = 0;
-								}
-								else if(count == 1 && back_data.cnt == 0) {
-									printf("对方拒绝接收文件\n");
-									break;
 								}
 
 							}
@@ -643,30 +649,34 @@ void News_Manage(int fd)
 							memset(&buf,0,sizeof(buf));
 							buf.type = 0400;
 							buf.flag = 1;
+							buf.size = 0;
 							strcpy(buf.send_user,cr[i].send_user);
 							strcpy(buf.recv_user,cr[i].recv_user);
+
 							send(fd,&buf,sizeof(buf),0);
 
 							count = 0;
-							int size = cr[i].size;
+							long size = cr[i].size;
 							char *filename = cr[i].data;
-							
+							long num = 0;	
 							//根据文件名创建文件并打开
 							int fp = open(filename,O_CREAT | O_APPEND | O_RDWR,0777);
 							//开始接收文件
 							while(1) {
-								if(count == 1 && back_data.ar[0].data[0] != '\0') {
-									write(fp,back_data.ar[0].data,50);
+								if(count == 1 && back_data.size == 0) {
+									printf("接收完毕\n");
+									break;
+								}
+
+								else if(count == 1 && back_data.size != 0) {
+									printf("接收方:%s\n",back_data.ar[0].data);
+									write(fp,back_data.ar[0].data,back_data.size);
 									count = 0;	
 									printf("#");
 									//接收完这一波数据，发送反馈
 									//请求接收下一波
 									memset(buf.data,0,50);
 									send(fd,&buf,sizeof(buf),0);
-								}
-								else if(count == 1 && strcmp(back_data.ar[0].data,"wanbi") == 0) {
-									printf("接收完毕\n");
-									break;
 								}
 							}
 						}
@@ -755,15 +765,17 @@ void Chat_Friend(int fd)
 				send(fd,&buf,sizeof(buf),0);			//发送消息请求
 
 				break;
+			/*
 			case '2': {
+			
 				memset(&buf,0,sizeof(buf));
 				printf("输入文件名:");
 				scanf("%s",file);
 				//打开当前目录下的此文件，计算其大小，将文件名连同大小发送到服务器
 				int filed;
 				struct stat auf;
-				char c;									//用一字节来传输文件
-				int size;						//记录已传输的大小
+				int size = 0;						//记录已传输的大小
+				int cnt = 0;
 				if((filed = open(file,O_RDONLY) )== -1) 
 					perror("");
 				
@@ -793,19 +805,26 @@ void Chat_Friend(int fd)
 						buf.flag = 1;
 						strcpy(buf.recv_user,friend_name);
 						strcpy(buf.send_user,user);
-						if(read(filed,buf.data,50) < 1) {	//到末尾结束
-							memset(buf.data,0,50);
+						size += read(filed,buf.data,50);
+						if(cnt)	{							//到达文件末尾
 							strcpy(buf.data,"wanbi");
-							send(fd,&buf,sizeof(buf),0);
-							printf("发送完毕\n");
 							break;
 						}
-						printf("data = %s\n",buf.data);
+						if(size == auf.st_size)				//读取最后一段数据
+							cnt = 1;
+						send(fd,&buf,sizeof(buf),0);
+							
+						printf("发送方 %s\n",buf.data);
 						send(fd,&buf,sizeof(buf),0);
 						count = 0;
 					}
+					else if(count == 1 && back_data.cnt == 0) {
+						printf("对方拒绝接收文件\n");
+						break;
+					}
 				}
 			}
+			*/
 			default:
 				printf("请输入正确的选项\n");
 				break;

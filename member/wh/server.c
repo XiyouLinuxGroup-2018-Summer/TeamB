@@ -147,37 +147,26 @@ void Send_file(request buf,b_data *back_data)
 	
 	
 	if(buf.flag == 0) {					//第一次开始准备发送文件
-		back_data->cnt = 0;	
-		back_data->type = 0400;		//返回值类型为文件
-					
-		//根据用户名得到接收方套接字
-		MYSQL_RES *res = NULL;
-		MYSQL_ROW rows;
-		char query_str[200];
-		memset(query_str,0,200);
-		sprintf(query_str,"select * from userinfo where name='%s'",buf.recv_user);
-		mysql_real_query(&mysql,query_str,strlen(query_str));
-		res = mysql_store_result(&mysql);
-		rows = mysql_fetch_row(res);
-
-			
-		int fd = rows[2][0] - '0';
+		back_data->type = 0400;		//返回值类型为文件	
 
 		//将信息存入新的反馈结构体并发送给另一个客户端
 		b_data auf;
 		memset(&auf,0,sizeof(auf));
 		auf.type = 44;
 		strcpy(auf.ar[0].send_user,buf.send_user);
+		strcpy(auf.ar[0].recv_user,buf.recv_user);
 		strcpy(auf.ar[0].data,buf.data);
 		auf.ar[0].type = 4;
 		auf.flag = 0;
 		auf.ar[0].size = buf.size;
-		if(rows[3][0] - '0' == 0) {	//对方未在线
+
+		if(Online(buf.recv_user) == 0) {	//对方未在线
 			New_offline(auf,0);		//信息存入离线消息表中
 			return;	
 		}
 		//发送接收文件大小以及名称给接收客户端
-		send(fd,&auf,sizeof(auf),0);
+		printf("s:%s r:%s da:%s\n",buf.send_user,buf.recv_user,buf.data);
+		send(get_fd(buf.recv_user),&auf,sizeof(auf),0);
 		
 		return;
 	}
@@ -192,13 +181,19 @@ void Send_file(request buf,b_data *back_data)
 			send(get_fd(buf.send_user),back_data,sizeof(b_data),0);
 		}
 	}
-	else if(buf.flag == 1 && buf.data[0] != '\0') {
+	else if(buf.flag == 1 && buf.size != 0) {
 		//将文件内容传输到接收方	
-		strcpy(back_data->ar[0].data,buf.data);
-		send(get_fd(buf.recv_user),back_data,sizeof(b_data),0);
+		b_data auf;
+		memset(&auf,0,sizeof(auf));
+		if(buf.fd == -2)
+			buf.size = 0;
+		memcpy(auf.ar[0].data,buf.data,buf.size);
+		auf.size = buf.size;
+		printf("auf.size = %ld",auf.size);
+		
+		send(get_fd(buf.recv_user),&auf,sizeof(b_data),0);
+		back_data->cnt = 1;
 	}	
-
-
 }
 //处理发送群聊消息请求
 void Send_gmessage(request buf,b_data *back_data)
@@ -1070,6 +1065,21 @@ void *handle_all(void *fd)					//int fd
 	int length = 0;
 	while(1) {
 		length= recv(conn_fd,((char *)&buf + ret),sizeof(buf) - ret,0);
+		if(length == 0 || length == -1) {
+			MYSQL_RES *res = NULL;
+			MYSQL_ROW	rows;
+			char query_str[200];
+
+			//改变用户信息表中此用户状态
+			memset(query_str,0,200);
+			sprintf(query_str,"update userinfo set state=0   where fd=%d",conn_fd);
+			int rc = mysql_real_query(&mysql,query_str,strlen(query_str));
+			if(rc != 0)
+				printf(" %s\n",mysql_error(&mysql));
+			pthread_exit(0);
+		}
+			
+
 		ret+=length;
 
 		if(ret == sizeof(buf)) {
@@ -1201,10 +1211,9 @@ void *handle_all(void *fd)					//int fd
 					break;
 				case 0400:
 					//处理发送文件请求
-					printf("Send_file %s %d\n",buf.data,buf.flag);
+					printf("Send_file recv:%s fl:%d data:%s size:%ld\n",buf.recv_user,buf.flag,buf.data,buf.size);
 					memset(&back_data,0,sizeof(b_data));
 					Send_file(buf,&back_data);
-					send(conn_fd,&back_data,sizeof(b_data),0);			
 					break;
 			/*	case 0372:
 					//处理踢人请求
