@@ -19,7 +19,7 @@ typedef struct reque{
 	char send_user[20];						//请求方
 	int fd;									//请求方套接字
 	char recv_user[20];						//被请求方
-	char  data[50];							//请求数据
+	char  data[500];							//请求数据
 	time_t time;							//请求时间
 	int flag;								//是否被处理
 	long size;								//请求数据大小
@@ -44,10 +44,11 @@ typedef struct dat{
 	int type;								//反馈消息类型
 	int cnt;								//是否成功			1
 	char passwd[20];						//找回密码			2
-	char str[20][20];						//显示所有好友		3
-	struct record ar[20];					//消息记录			4
+	char str[5][20];						//显示所有好友		3
+	struct record ar[10];					//消息记录			4
 	int flag;								//是否被处理
 	long size;								//反馈数据大小
+	char data[500];
 }b_data;
 
 //根据用户名得到对应的套接字
