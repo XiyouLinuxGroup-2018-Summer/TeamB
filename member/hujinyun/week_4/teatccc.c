@@ -14,8 +14,9 @@
 
 #define W_NAPS  'n'
 #define R_NAPS  'y'
-#define BUFSIZE 1024
 #define LEN1      sizeof(struct message)
+#define BUFSIZE LEN1
+
 int       conn_fd;     //只需要一个conn_fd
 int       b=0;         //添加好友请求数
 int       c=10;        //申请入群数
@@ -322,7 +323,7 @@ void accept_add_file(int k)
     }
     for(t = k; t<20; t++)
     {
-        chat_t[t] = chat_t[t+1];;
+        chat_t[t] = chat_t[t+1];
     }
     d--;
 }
@@ -331,13 +332,15 @@ void add_file_req()
 {
     int k,t,choice;
     system("clear");
+    printf("--------------------------\n");
     for(k=20, t=1; k<d; k++, t++ )
     {
         printf("[序号]%d [用户] %s 先要给你发送一个文件%s\n",t,chat_t[k].from,chat_t[k].file.file_name);
     }
     printf("\n\n\n\n\n");
     printf("请输入要处理的序号:");
-    scanf("%d",choice);
+    scanf("%d",&choice);
+    printf("hhhhhhh\n");
     accept_add_file(choice+19);
 }
 int message_ment()      //通知类消息管理
@@ -526,20 +529,21 @@ int pri_chat()                                   //私聊
         printf("%s说：",near.from);
         memset(near.news,0,100);
         my_input(near.news,100);
+        // scanf("%s",near.news);
         if((fp = fopen(near.to,"ab+")) == NULL)
         {
                 my_err("fopen",__LINE__);
                 exit(0);
         }
-        printf("qqqqqq\n");
+     //   printf("qqqqqq\n");
         fwrite(&near,LEN1,1,fp);
 
         fclose(fp);
-        printf("qqqqqq2\n");
+     //   printf("qqqqqq2\n");
         if(strcmp(near.news,"quit") == 0)
         {
-            printf("qq3%s\n",near.news);
-            break;
+     //       printf("qq3  %s\n",near.news);
+           // break;
             return 0;
         }
         memcpy(near_buf,&near,LEN1);
@@ -581,7 +585,7 @@ int chat_with()
         {
             case 1:
             {
-                pri_chat();
+                int a = pri_chat();
                 printf(" 退出聊天了\n");
                 break;
             }
@@ -812,6 +816,7 @@ void send_file()
     }
     fseek(fp, 0L, SEEK_END );
     near.file.file_len = ftell(fp);
+    
     fclose(fp);
     
     memcpy(near_buf,&near,LEN1);
@@ -1050,7 +1055,7 @@ void *sign_func()
                 int large;
                 sum = chat.file.file_len;
                 char near_buf[BUFSIZE];
-                printf("[系统提示] kaishifasongwenjian\n");
+                printf("[系统提示] 开始发送文件\n");
                 int fd;
                 if((fd = open(chat.file.file_name,O_RDONLY)) <0)
                     my_err("open",__LINE__);
@@ -1069,6 +1074,7 @@ void *sign_func()
                         break;
                 }
                 close(fd);
+                break;
             }
             case '&':
             {
@@ -1079,6 +1085,7 @@ void *sign_func()
                     {
                         my_err("write",__LINE__);
                     }
+                break;
             }
             case 'w'://拒绝发送文件通知
             {
