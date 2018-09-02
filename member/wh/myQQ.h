@@ -44,8 +44,8 @@ typedef struct dat{
 	int type;								//反馈消息类型
 	int cnt;								//是否成功			1
 	char passwd[20];						//找回密码			2
-	char str[100][20];						//显示所有好友		3
-	struct record ar[50];					//消息记录			4
+	char str[20][20];						//显示所有好友		3
+	struct record ar[20];					//消息记录			4
 	int flag;								//是否被处理
 	long size;								//反馈数据大小
 }b_data;

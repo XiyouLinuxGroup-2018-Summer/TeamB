@@ -32,20 +32,26 @@ void *fback(void *arg)
 	int num = 0;
 	int length = 0;
 	while(1) {
+		while(count == 1);	
 		if((length= recv(conn_fd,((char *)&back_data + num),sizeof(back_data) - num ,0)) < 0) {
 			perror("recv");
 		}
 		num+=length;
 		if(num == sizeof(b_data)) {						//确保接收到完整的结构体
+			printf("recv:data=%s,size:%ld\n",back_data.ar[0].data,back_data.size);
+			
 			if(back_data.type == 431)	{					//接收到好友申请
+
 				if(back_data.flag == 0)	{					//提交的申请
 					printf("用户%s请求加您为好友\n",back_data.ar[0].send_user);
 					back_data.ar[0].flag = 0;
 					back_data.ar[0].type = 31;
 					memcpy((void *)&cr[cnt++],(void *)&back_data.ar[0],sizeof(struct record));
+					continue;
 				}
 				else {										//已同意的反馈
 					printf("用户%s同意添加您为好友\n",back_data.ar[0].recv_user);
+					continue;
 				}
 			}
 			else if(back_data.type == 432) {				//接收到请求加群的通知
@@ -54,43 +60,51 @@ void *fback(void *arg)
 					back_data.ar[0].flag = 0;
 					back_data.ar[0].type = 32;
 					memcpy((void *)&cr[cnt++],(void *)&back_data.ar[0],sizeof(struct record));
+					continue;
 				}
 				else										//接收到同意加群的反馈
 					printf("您成功加入群聊%s\n",back_data.ar[0].data);
+					continue;
 			}
 			else if(back_data.type == 433) {				//接收到解散群的通知
 				printf("群主%s已解散群聊%s\n",back_data.ar[0].send_user,back_data.ar[0].recv_user);
 				memcpy((void *)&cr[cnt++],(void *)&back_data.ar[0],sizeof(struct record));
+				continue;
 			}
 			else if(back_data.type == 434) {				//接收到用户退出的通知
 				printf("用户%s已退出群聊%s\n",back_data.ar[0].send_user,back_data.ar[0].recv_user);
 				memcpy((void *)&cr[cnt++],(void *)&back_data.ar[0],sizeof(struct record));
+				continue;
 			}
 			else if(back_data.type == 41) {					//正在和此好友聊天
 				if(strcmp(friend,back_data.ar[0].send_user) == 0) {
 					printf("%s:%-50s\n",friend,back_data.ar[0].data);
 					back_data.flag = 1;
+					continue;
 				}
 				else {										//没有和此好友聊天
 					printf("您有一条来自好友%s的新消息，请及时查看\n",back_data.ar[0].send_user);
 					back_data.ar[0].type = 1; 
 					memcpy((void *)&cr[cnt++],(void *)&back_data.ar[0],sizeof(struct record));
+					continue;
 				}
 			}
 			else if(back_data.type == 42) {					//正在水群
 				if(strcmp(group,back_data.ar[0].recv_user) == 0) {	
 					printf("%s:%-50s\n",back_data.ar[0].send_user,back_data.ar[0].data);
 					back_data.flag = 1;
-				}
+					continue;
+				}	
 				else {										//没有水群
 					printf("您有一条来自群聊%s的新消息，请及时查看\n",back_data.ar[0].recv_user);
 					memcpy((void *)&cr[cnt++],(void *)&back_data.ar[0],sizeof(struct record));
+					continue;
 				}
 			}
 			else if(back_data.type == 44 && back_data.flag == 0) {				//准备好了接收文件
 				printf("您有一条来自用户%s的请求，请及时查看\n",back_data.ar[0].send_user);
 				memcpy((void *)&cr[cnt++],(void *)&back_data.ar[0],sizeof(struct record));
-
+				continue;
 			}
 			count = 1;					//经过处理之后将是否接收到该消息标志置为1
 			num = 0;
@@ -148,6 +162,7 @@ int main(int argc,char *argv[])
 			
 				while(1) {
 					if(count == 1 && back_data.cnt == 1) {
+						count = 0;
 						puts("登陆成功!");
 						
 						//发送显示离线消息请求
@@ -156,10 +171,12 @@ int main(int argc,char *argv[])
 						strcpy(buf.send_user,user);
 						send(sock_fd,&buf,sizeof(buf),0);
 						
+						
 						Main_menu(sock_fd);								//进入管理界面
 						break;
 					}
 					else if(count == 1 && back_data.cnt == 0) {
+						count = 0;
 						puts("密码错误");
 						break;
 					}
@@ -180,10 +197,12 @@ int main(int argc,char *argv[])
 				
 				while(1) {
 					if(count == 1 && back_data.cnt == 1) {
+						count = 0;
 						printf("注册成功\n");
 						break;
 					}
 					else if(count == 1 && back_data.cnt == 0) {
+						count = 0;
 						puts("注册失败\n");
 						break;
 					}
@@ -259,9 +278,11 @@ void Friend_Manage(int fd)
 		if(count == 1 && back_data.str[0][0] != '\0') {
 			for(i = 0;back_data.str[i][0] != '\0';i++)
 				printf("%s\n",back_data.str[i]);
+			count = 0;
 			break;
 		}
 		else if(count == 1 && back_data.str[0][0] == '\0') {
+			count = 0;
 			printf("您目前还没有好友\n");
 			break;
 		}
@@ -299,11 +320,15 @@ void Friend_Manage(int fd)
 							else
 								printf("%s:%-50s\n",friend_name,back_data.ar[i].data);
 						}
+						count = 0;
 						break;
 					}
-					else if(count == 1 && back_data.ar[0].data[0] == '\0')
+					else if(count == 1 && back_data.ar[0].data[0] == '\0') {
+						count = 0;
 						break;
+					}
 					else if(count == 1 && back_data.cnt == 0) {
+						count = 0;
 						break;
 					}
 
@@ -358,15 +383,21 @@ void Friend_Manage(int fd)
 							long num = 0;
 							int cnt = 0;
 							long size = 0;
+							int flag = 0;
 
 							count = 0;
 							memset(&back_data,0,sizeof(back_data));
 							send(fd,&buf,sizeof(buf),0);
 							printf("正在等待对方同意\n");
 							while(1) {
-								if(count == 1 && back_data.cnt == 1) {
-									//开始传输文件
-									printf("*");
+								if((count == 1 && back_data.cnt == 1) ) {
+									count = 0;
+									break;
+								}
+							}
+							while(1) {
+								//开始传输文件
+									
 									memset(&buf,0,sizeof(buf));
 									buf.type = 0400;
 									buf.flag = 1;
@@ -377,7 +408,7 @@ void Friend_Manage(int fd)
 										buf.size = size;
 										if(cnt) {
 											buf.size = 1;
-											buf.fd = -2;
+											buf.fd = -100;
 											strcpy(buf.data,"hello world");
 											send(fd,&buf,sizeof(buf),0);
 											printf("发送完毕\n");
@@ -388,13 +419,15 @@ void Friend_Manage(int fd)
 										}
 										
 									}
-									printf("发送方:%s - data:%s\n",buf.send_user,buf.data);
+								
+									
+									printf("\n发送方:%s - data:%s\n",buf.send_user,buf.data);
 									send(fd,&buf,sizeof(buf),0);
 
 									count = 0;
-								}
-
+								//}
 							}
+
 							break;	
 									
 
@@ -403,7 +436,6 @@ void Friend_Manage(int fd)
 							printf("请输入正确的选项\n");
 							break;
 					}
-					system("clear");
 					/*
 					//显示聊天记录
 					strcpy(buf.send_user,friend_name);
@@ -459,10 +491,12 @@ void Friend_Manage(int fd)
 				send(fd,&buf,sizeof(buf),0);
 				while(1) {
 					if(count == 1 && back_data.cnt == 1) { 
+						count = 0;
 						printf("请求发送成功!\n");
 						break;
 					}
 					else if(count == 1 && back_data.cnt  == 0) {
+						count = 0;
 						printf("添加失败!\n");
 						break;
 					}
@@ -487,10 +521,12 @@ void Friend_Manage(int fd)
 				send(fd,&buf,sizeof(buf),0);
 				while(1) {
 					if(count == 1 && back_data.cnt == 1) {
+						count = 0;
 						printf("删除成功\n");
 						break;
 					}
 					else if(count == 1 && back_data.cnt == 0) {
+						count = 0;
 						printf("删除失败\n");
 						break;
 					}
@@ -619,10 +655,12 @@ void News_Manage(int fd)
 							
 							while(1) {
 								if(count == 1 && back_data.cnt == 1) {
+									count = 0;
 									printf("对方已加入\n");
 									break;
 								}
 								else if(count == 1 && back_data.cnt == 0) {
+									count = 0;
 									printf("错误\n");
 									break;
 								}
@@ -661,22 +699,23 @@ void News_Manage(int fd)
 							long num = 0;	
 							//根据文件名创建文件并打开
 							int fp = open(filename,O_CREAT | O_APPEND | O_RDWR,0777);
+
 							//开始接收文件
 							while(1) {
 								if(count == 1 && back_data.size == 0) {
+									count = 0;
 									printf("接收完毕\n");
+									close(fp);
 									break;
 								}
 
 								else if(count == 1 && back_data.size != 0) {
-									printf("接收方:%s\n",back_data.ar[0].data);
+								//	printf("接收方:%s\n",back_data.ar[0].data);
+									printf("************\n");
 									write(fp,back_data.ar[0].data,back_data.size);
-									count = 0;	
-									printf("#");
-									//接收完这一波数据，发送反馈
-									//请求接收下一波
-									memset(buf.data,0,50);
-									send(fd,&buf,sizeof(buf),0);
+									count = 0;
+									//接收完毕反馈给发送方
+									//send(fd,&buf,sizeof(buf),0);
 								}
 							}
 						}
@@ -690,15 +729,15 @@ void News_Manage(int fd)
 							send(fd,&buf,sizeof(buf),0);
 							printf("已拒绝\n");
 						}
-						default:
-							printf("请输入正确的选项\n");
 							break;
 					}
+				default:
+					printf("请输入正确的选项\n");
+					break;
+			}	
 		}
 		while(getchar() != '\n');
 		printf("1.私聊\n2.群聊\n3.系统通知\n4.文件传输\nq.退出\n");
-	}
-	system("clear");
 }
 
 //与好友私聊界面
@@ -735,10 +774,13 @@ void Chat_Friend(int fd)
 				else
 					printf("%s:%-50s\n",back_data.ar[0].send_user,back_data.ar[i].data);
 			}
+			count = 0;
 			break;
 		}
-		else if(count == 1 && back_data.ar[0].data[0] == '\0')
+		else if(count == 1 && back_data.ar[0].data[0] == '\0') {
+			count = 0;
 			break;
+		}
 	}
 
 	//发送消息
@@ -866,11 +908,15 @@ void Chat_Group(int fd)
 				else
 					printf("%s:%s\n",back_data.ar[i].send_user,back_data.ar[i].data);
 			}
+			count = 0;
 			break;
 		}
-		else if(count == 1 && back_data.ar[0].data[0] == '\0')
+		else if(count == 1 && back_data.ar[0].data[0] == '\0') {
+			count = 0;
 			break;
+		}
 		else if(count == 1 && back_data.cnt == 0) {
+			count = 0;
 			break;
 		}
 	}
@@ -961,9 +1007,11 @@ void Group_Manage(int fd)
 		if(count == 1 && back_data.str[0][0] != '\0') {
 			for(i = 0;back_data.str[i][0] != '\0';i++)
 				printf("%s\n",back_data.str[i]);
+			count = 0;
 			break;
 		}
 		else if(count == 1 && back_data.str[0][0] == '\0') {
+			count = 0;
 			printf("您无群可水\n");
 			break;
 		}
@@ -1001,10 +1049,12 @@ void Group_Manage(int fd)
 			
 				while(1) {
 					if(count == 1 && back_data.cnt == 1) {
+						count = 0;
 						printf("您的群聊%s创建成功\n",create_group);
 						break;
 					}
 					else if(count == 1 && back_data.cnt == 0) {
+						count = 0;
 						printf("创建失败\n");
 						break;
 					}
@@ -1029,10 +1079,12 @@ void Group_Manage(int fd)
 
 				while(1) {
 					if(count == 1 && back_data.cnt == 1) {
+						count = 0;
 						printf("您的群聊%s解散成功\n",delete_group);
 						break;
 					}
 					else if(count == 1 && back_data.cnt == 0) {
+						count = 0;
 						printf("解散失败\n");
 						break;
 					}
@@ -1062,10 +1114,12 @@ void Group_Manage(int fd)
 
 				while(1) {
 					if(count == 1 && back_data.cnt == 1) {
+						count = 0;
 						printf("申请已发送成功，等待同意\n");
 						break;
 					}
 					else if(count == 1 && back_data.cnt == 0) {
+						count = 0;
 						printf("申请发送失败!\n");
 						break;
 					}
@@ -1090,10 +1144,12 @@ void Group_Manage(int fd)
 				send(fd,&buf,sizeof(buf),0);
 				while(1) {
 					if(count == 1 && back_data.cnt == 1) {
+						count = 0;
 						printf("退出成功\n");
 						break;
 					}
 					else if(count == 1 && back_data.cnt == 0) {
+						count = 0;
 						printf("退出失败\n");
 						break;
 					}
@@ -1120,9 +1176,11 @@ void Group_Manage(int fd)
 					if(count == 1 && back_data.str[0][0] != '\0') {
 						for(int i = 0;back_data.str[i][0] != '\0';i++)
 							printf("%s\n",back_data.str[i]);
+						count = 0;
 						break;
 					}
 					else if(count == 1 && back_data.str[0][0] == '\0') {
+						count = 0;
 						printf("无成员\n");
 						break;
 					}

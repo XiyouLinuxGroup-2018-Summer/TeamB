@@ -170,27 +170,26 @@ void Send_file(request buf,b_data *back_data)
 		
 		return;
 	}
-	if(buf.flag == 1 && buf.data[0] == '\0') {	
+	if(buf.flag == 1 && buf.size == 0) {	
 		//发送接收反馈给发送方
-		if(buf.size == 0) {
+	//	if(buf.size == 0) {
 			back_data->cnt = 1;
 			send(get_fd(buf.send_user),back_data,sizeof(b_data),0);
-		}
-		else {
+			
+	//	}
+		/*else {
 			back_data->cnt = 0;
 			send(get_fd(buf.send_user),back_data,sizeof(b_data),0);
-		}
+		}*/
 	}
 	else if(buf.flag == 1 && buf.size != 0) {
 		//将文件内容传输到接收方	
 		b_data auf;
 		memset(&auf,0,sizeof(auf));
-		if(buf.fd == -2)
+		if(buf.fd == -100)
 			buf.size = 0;
 		memcpy(auf.ar[0].data,buf.data,buf.size);
 		auf.size = buf.size;
-		printf("auf.size = %ld",auf.size);
-		
 		send(get_fd(buf.recv_user),&auf,sizeof(b_data),0);
 		back_data->cnt = 1;
 	}	
@@ -1211,9 +1210,11 @@ void *handle_all(void *fd)					//int fd
 					break;
 				case 0400:
 					//处理发送文件请求
-					printf("Send_file recv:%s fl:%d data:%s size:%ld\n",buf.recv_user,buf.flag,buf.data,buf.size);
+					//printf("Send_file recv:%s fl:%d data:%s size:%ld\n",buf.recv_user,buf.flag,buf.data,buf.size);
 					memset(&back_data,0,sizeof(b_data));
 					Send_file(buf,&back_data);
+					 
+					//send(conn_fd,&back_data,sizeof(b_data),0);
 					break;
 			/*	case 0372:
 					//处理踢人请求
