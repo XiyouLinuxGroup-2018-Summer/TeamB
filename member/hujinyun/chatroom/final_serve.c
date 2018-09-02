@@ -14,6 +14,7 @@
 #define LEN     sizeof(struct users)
 #define LEN1    sizeof(struct message)
 #define BUFSIZE          LEN1 
+int recv_t;
 
 pthread_mutex_t          mutex;
 int                      y=0;  //分配离线消息的结构体
@@ -106,6 +107,42 @@ void my_err(const char* err_string, int line )
     fprintf(stderr, "line: %d", line);
     perror(err_string);
     exit(1);
+}
+
+int my_recv(int conn_fd, char* data_buf, int len, int flags)
+{
+    char recv_buf[BUFSIZE];
+    char *pread;//指向下一次读取数据的位置
+    int len_remin = 0;//自定义缓冲区剩余字数
+    int i;
+
+    // 如果自定义缓冲区中没有数据,则从套接字中读取数据
+    if(len_remin <=0)
+    {
+        if((len_remin = recv(conn_fd, recv_buf, sizeof(recv_buf), flags)) <0)
+        {
+            my_err("recv",__LINE__);
+        }
+        else if(len_remin == 0)
+        {
+            return 0;
+        }
+        pread = recv_buf;//初始化pread指针
+    }
+
+    //从自定义缓冲区中读取一次数据
+    for(i = 0; *pread != '\n'; i++)
+    {
+        if(i>len)//防止指针越界
+        {
+            return -1;
+        }
+        data_buf[i]=*pread++;
+        len_remin--;
+    }
+    len_remin--;
+    pread++;
+    return i;
 }
 
 void refuse_add_group(struct message chat,int i)
@@ -918,10 +955,10 @@ void *client_t(void *arg)                                       //线程函数�
         struct    regi_sign account;
         memset(&account,0,sizeof(struct regi_sign));
         memset(recv_buf,0,sizeof(recv_buf));
-        if(recv(connect_info[i].fd,recv_buf,sizeof(recv_buf),0) != BUFSIZE)
+        if((recv_t = my_recv(connect_info[i].fd,recv_buf,sizeof(recv_buf),0))<0)
         {
             connect_info[i].fd = -1;
-            printf("[用户]%s异常离线 \t%s\n",connect_info[i].name,my_time());
+            printf("1[用户]%s异常离线 \t%s\n",connect_info[i].name,my_time());
             strcpy(connect_info[i].name," ");
             pthread_exit(0);
         }
@@ -957,11 +994,11 @@ void *client_t(void *arg)                                       //线程函数�
         int       ret;
         memset(&chat,0,LEN1);
         memset(recv_buf,0,BUFSIZE);
-        if((ret = recv(connect_info[i].fd,recv_buf,BUFSIZE,0))!= BUFSIZE)
+        if((ret = my_recv(connect_info[i].fd,recv_buf,BUFSIZE,0))<0)
         {
         
             connect_info[i].fd = -1;
-            printf("[用户]%s异常离线 \t%s\n",connect_info[i].name,my_time());
+            printf("2[用户]%s异常离线 \t%s\n",connect_info[i].name,my_time());
             strcpy(connect_info[i].name," ");
             pthread_exit(0);
         }
