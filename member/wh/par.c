@@ -1,12 +1,15 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <time.h>
+typedef struct A{
+	char a;
+	char b;
+	int c;
+}a;
 int main(void)
 {
-	time_t timer;//time_t就是long int 类型
-	struct tm *tblock;
-	timer = time(NULL);//这一句也可以改成time(&timer);
-	tblock = localtime(&timer);
-	printf("Local time is: %s\n",asctime(tblock));
+	a data = {'a','b','c'};
+	printf("%c\n",*((char *)&data + 4));
 	return 0;
+
 }

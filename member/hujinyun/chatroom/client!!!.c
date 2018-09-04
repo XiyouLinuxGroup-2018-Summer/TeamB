@@ -163,7 +163,7 @@ int send_login(char *username_t, char *password_t)
 {
     PACK recv_login_t;
     int  login_judge_flag = 0;
-    send_pack(LOGIN, username_t, "server", password_t);  //LOGIN
+    send_pack(LOGIN, username_t, "server", password_t);  //LOGIN 密码作为信息传入
 
     if(recv(sockfd, &recv_login_t, sizeof(PACK),0)<0)
         my_err("recv", __LINE__);
@@ -281,8 +281,8 @@ int main(int argc, char **argv)
     if(login_menu() == 0)
         return 0;
 
-//    init_client_pthread(); //开启线程
- //   main_menu(); //主菜单
+    init_client_pthread(); //开启线程
+    main_menu(); //主菜单
     return 0;
 
 }

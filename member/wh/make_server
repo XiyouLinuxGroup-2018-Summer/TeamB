@@ -1,1 +1,1 @@
-gcc server.c -o server  -lpthread -g -I/usr/include/mysql/ -L/usr/lib/mysql/ -lmysqlclient
+gcc server.c -o server  -lpthread -g -I/usr/include/mysql/ -L/usr/lib/mysql/ -lmysqlclient 
