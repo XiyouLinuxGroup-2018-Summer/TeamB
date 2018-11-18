@@ -9,6 +9,10 @@
 #include<sys/socket.h>
 #include<mysql/mysql.h>
 #include<pthread.h>
+#include<termios.h>
+#include<assert.h>
+#include<stdio_ext.h>
+
 /*客户端*/
 #define PORT 8848           //端口地址
 #define send_length 200     
@@ -85,6 +89,24 @@ void my_err(char *str, int line)
 	perror(str);
 	exit(0);
 }
+
+/*getchar()的实现*/
+int getch()
+{
+    int c=0;
+    struct termios org_opts, new_opts;
+    int res=0;
+     res=tcgetattr(STDIN_FILENO, &org_opts);
+     assert(res==0);
+    memcpy(&new_opts, &org_opts, sizeof(new_opts));
+    new_opts.c_lflag &= ~(ICANON | ECHO | ECHOE | ECHOK | ECHONL | ECHOPRT | ECHOKE | ICRNL);
+    tcsetattr(STDIN_FILENO, TCSANOW, &new_opts);
+    c=getchar();
+    res=tcsetattr(STDIN_FILENO, TCSANOW, &org_opts);
+    assert(res==0);
+    return c;
+}
+
 /*注册*/
 int user_login(int socket)	
 {
@@ -98,7 +120,7 @@ int user_login(int socket)
 	printf("\t\t注册\n");
 	printf("用户名长度小于20\n");
 	printf("请输入要注册的用户名：");
-	getchar();
+//	getchar();
 	scanf("%[^\n]", username);
 	username[strlen(username)] = ':';     //分隔名字，密码，密保问题的分隔符
 	username[strlen(username)] = '\0';
@@ -143,22 +165,37 @@ int user_login(int socket)
 int user_enter(int socket)
 {
 	char use[200] = "enter:";
-	char name[21] = {0};
-	char passwd[20] = {0};
-	char flag[200] = {0};
+	char name[21] = {0};					//用户名
+	char passwd[20] = {0};					//密码
+	char flag[200] = {0};                        
 	int recv_length = 200;      
 	printf("------------------\n");
 	printf("登录界面\n");
 	printf("请输入你的用户名：");
-	getchar();
 	scanf("%[^\n]", name);
 	strcpy(own_name, name);                  //保存当前登录用户的名字
 	name[strlen(name)] = ':';
 	name[strlen(name)] = '\0';
 	printf("请输入你的密码：");
 	getchar();
-	scanf("%[^\n]", passwd);
-	passwd[strlen(passwd)] = '\0';
+	int i = 0;
+	int ch;
+	ch = getch();
+	while(ch != '\n')
+	{
+		if(ch == 127)
+		{
+			passwd[--i] = '\0';
+			printf("\b \b");
+			ch = getch();
+			continue;
+		}
+		passwd[i++] = ch;
+		printf("*");
+		ch = getch();
+	}
+	printf("\n");
+	//printf("passwd = %s \n", passwd);
 	strcat(use, name);
 	strcat(use, passwd);
 	if(send(socket, use, send_length, 0) < 0)
@@ -193,7 +230,7 @@ int find_passwd(int socket)
 	printf("-------------------\n");
 	printf("找回密码\n");
 	printf("请输入你的用户名\n");
-	getchar();
+//	getchar();
 	scanf("%[^\n]", name);
 	name[strlen(name)] = ':';
 	name[strlen(name)] = '\0';
@@ -522,11 +559,12 @@ void *send_message(void *arg)
 		printf("3 文件发送\n");
 		printf("4 消息通知管理\n");
 		printf("q 退出\n");
-		getchar();
+		//getchar();
 		scanf("%c", &q);
 		while(q == '1')
 		{
 			//system("clear");
+			__fpurge(stdin);
 			printf("1 私聊\n");
 			printf("2 添加好友\n");
 			printf("3 删除好友\n");
@@ -534,7 +572,9 @@ void *send_message(void *arg)
 			printf("5 查看历史记录\n");
 			printf("6 屏蔽好友输入\n");
 			printf("q 退出\n");
-			getchar();
+
+			//getchar();
+
 			char s;
 			scanf("%c", &s);
 			if(s == '1')
@@ -556,18 +596,22 @@ void *send_message(void *arg)
 				{
 					char send_message[200] = {0};
 					char send_temp[200] = {0};
-					getchar();
+					__fpurge(stdin);
+
+					//getchar();
+
 					scanf("%[^\n]", send_temp);
 					if(strcmp(send_temp, "q") == 0)
 						break;
 					strcpy(send_message, message);
 					strcat(send_message, send_temp);
-					printf("message = %s\n", send_message);
+			//		printf("message = %s\n", send_message);
 					if(send(socket, send_message, send_length, 0) < 0)
 						my_err("send", __LINE__);
 					memset(send_message, 0, sizeof(send_message));
 				}
 				memset(online_name, 0, sizeof(online_name));//退出聊天将其清空
+				system("clear");
 			}
 			else if(s == '2')
 			{
@@ -579,6 +623,7 @@ void *send_message(void *arg)
 				printf("message = %s\n", message);
 				if(send(socket, message, send_length, 0) < 0)
 					my_err("send", __LINE__);
+				system("clear");
 			}
 			else if(s == '3')
 			{
@@ -590,7 +635,9 @@ void *send_message(void *arg)
 				printf("message = %s\n", message);
 				if(send(socket, message, send_length, 0) < 0)
 					my_err("send", __LINE__);
+				system("clear");
 			}
+			
 			else if(s == '4')
 			{
 				system("clear");
@@ -606,7 +653,8 @@ void *send_message(void *arg)
 			{
 				char message[200] = "~history:";
 				printf("请输入想要查看记录的姓名: ");
-				getchar();
+				__fpurge(stdin);
+				//getchar();
 				char name[20] = {0};
 				scanf("%[^\n]", name);
 				strcat(message, name);
@@ -622,15 +670,26 @@ void *send_message(void *arg)
 			{
 				char message[200] = "~shield:";
 				printf("请输入想要屏蔽好友的名字 :");
-				getchar();
+				__fpurge(stdin);
+
+				//getchar();
+
 				char name[20] = {0};
 				scanf("%[^\n]", name);
 				strcat(message, name);
 				if(send(socket, message, send_length, 0) < 0)
 					my_err("send", __LINE__);
+				system("clear");
 			}
+			
 			else if(s == 'q')
 				break;
+			else
+			{
+				__fpurge(stdin);
+				system("clear");
+			}
+			
 		}
 		while(q == '2')
 		{
@@ -645,7 +704,9 @@ void *send_message(void *arg)
 			printf("8 设置管理员\n");
 			printf("9 踢出群成员\n");
 			printf("q 退出\n");
-			getchar();
+			__fpurge(stdin);
+	//		getchar();
+
 			char w;
             scanf("%c", &w);
 			if(w == '1')
@@ -657,24 +718,28 @@ void *send_message(void *arg)
 				char message[200] = "~add_g:";
 				printf("请输入想要添加群的名称: ");
 				char group_name[20] = {0};
-				getchar();
+				__fpurge(stdin);
+			//	getchar();
 				scanf("%[^\n]", group_name);
 				strcat(message, group_name);
 				if(send(socket, message, send_length, 0) < 0)
 					my_err("send", __LINE__);
+				system("clear");
 			}	
 			else if(w == '3')
 			{
 				char message[200] = "~rm_group:";
 				char group_name[20] = {0};
 				printf("请输入想要解散群的名称：");
-				getchar();
+				__fpurge(stdin);
+			//	getchar();
 				scanf("%[^\n]", group_name);
 				strcat(message, group_name);
 				if(send(socket, message, send_length, 0) < 0)
 				my_err("send", __LINE__);
-				usleep(50000);
+				system("clear");
 			}
+				//usleep(50000);
 			else if(w == '4')
 			{
 				system("clear");
@@ -683,7 +748,8 @@ void *send_message(void *arg)
 				char send_message[200] = {0};
 				char send_temp[200] = {0};
 				printf("请输入想要聊天的群名称: ");
-				getchar();
+				__fpurge(stdin);
+//				getchar();
 				scanf("%[^\n]", group_name);
 				strcpy(online_name, group_name); //正在聊天的群名
 				strcat(message, group_name);
@@ -695,7 +761,8 @@ void *send_message(void *arg)
 				while(1)
 				{
 					strcpy(send_message, message);
-					getchar();
+	//				getchar();
+					__fpurge(stdin);
 					scanf("%[^\n]", send_temp);
 					if(strcmp(send_temp, "q") == 0)
 						break;
@@ -706,6 +773,7 @@ void *send_message(void *arg)
 					memset(send_message, 0, sizeof(send_message));
 				}
 				memset(online_name, 0, sizeof(online_name));
+				system("clear");
 			}
 			else if(w == '5')
 			{
@@ -760,9 +828,10 @@ void *send_message(void *arg)
 				printf("输入设置的用户名：");
 				scanf("%s", name);
 				strcat(message, name);
-				printf("message = %s\n", message);
+			//	printf("message = %s\n", message);
 				if(send(socket, message, send_length, 0) < 0)
 					my_err("send", __LINE__);
+				system("clear");
 			}
 			else if(w == '9')
 			{
@@ -779,9 +848,15 @@ void *send_message(void *arg)
 	//			printf("message = %s\n", message);
 				if(send(socket, message, send_length, 0) < 0)
 					my_err("send", __LINE__);
+				system("clear");
 			}
 			else if(w == 'q')
 				break;
+			else
+			{
+				__fpurge(stdin);
+				system("clear");
+			}
 		}
 		if(q == '3')
 		{
@@ -798,7 +873,7 @@ void *send_message(void *arg)
 			if(send(socket, message, send_length, 0) < 0)
 				my_err("send", __LINE__);
 		}
-		if(q == '4')
+		else if(q == '4')
 		{	
 			box *temp;
 			temp = (box *)malloc(sizeof(box));
@@ -849,7 +924,8 @@ void *send_message(void *arg)
 					char flag;
 					while(1)
 					{
-						getchar();
+						__fpurge(stdin);
+					//	getchar();
 						scanf("%c", &flag);
 						if(flag == 'y')
 						{
@@ -912,7 +988,8 @@ void *send_message(void *arg)
 						strcat(message, group_name);
 						printf("1 回复\n");
 						printf("2 不予理踩\n");
-						getchar();
+						__fpurge(stdin);
+					//	getchar();
 						char flag;
 						scanf("%c", &flag);
 						if(flag == '1')
@@ -967,7 +1044,8 @@ void *send_message(void *arg)
 							printf("%s发来了一条消息%s\n", name ,message);
 							printf("1 回复\n");
 							printf("2 不予理踩\n");
-							getchar();
+							__fpurge(stdin);
+				//			getchar();
 							char flag;
 							scanf("%c", &flag);
 							if(flag == '1')
@@ -984,7 +1062,8 @@ void *send_message(void *arg)
 								CLOSE
 								while(1)
 								{
-									getchar();
+									__fpurge(stdin);
+							//		getchar();
 									scanf("%[^\n]", temp1);
 									if(strcmp(temp1, "q") == 0)
 									{
@@ -1005,8 +1084,11 @@ void *send_message(void *arg)
 				}
 			}	
 		}
-		if(q =='q')
+		else if(q =='q')
 			exit(0);
+		else
+			__fpurge(stdin);
+		
 	}
 }
 
@@ -1244,13 +1326,19 @@ int main(int argc, char *argv[])
 	char select;
 	while(1)
 	{
-		printf("请输入1(注册)，2(登录)或者3(找回密码)\n");
+		printf("------------------------------------------\n");
+		printf("           welcome to qq chat             \n");
+		printf("请输入1(注册)，2(登录), 3(找回密码)\n");
 		scanf("%c", &select);
+		__fpurge(stdin);
+//		getchar();
 		system("clear");
 		if(select == '1')
 		{
 			while(!user_login(cli_fd))
 				printf("注册失败，请重新注册\n");
+			__fpurge(stdin);	
+//			getchar();
 			while(!user_enter(cli_fd))	
 				printf("登录失败请重新登录\n");
 			break;
@@ -1265,6 +1353,8 @@ int main(int argc, char *argv[])
 		{
 			while(!find_passwd(cli_fd))
 				printf("查找失败，请重新查找\n");
+			__fpurge(stdin);
+//			getchar();
 			while(!user_enter(cli_fd))	
 				printf("登录失败请重新登录\n");
 			break;
@@ -1279,4 +1369,5 @@ int main(int argc, char *argv[])
 	pthread_create(&tid2, NULL, recv_message, (void *)&cli_fd);
 	pthread_join(tid1, (void *)&status);
 }
+
 
